@@ -1,0 +1,213 @@
+# Coinquilino - impostazioni (file PERSONALE: non pubblicarlo, e' gia' in .gitignore).
+#
+# Copialo come coinquilino_personale.yaml nella cartella di AppDaemon, ACCANTO ad
+# appdaemon.yaml (con l'add-on: /addon_configs/a0d7b954_appdaemon/), non dentro apps/.
+# Tutte le voci sono facoltative tranne host; quelle commentate mostrano il valore
+# predefinito. Le stesse voci scritte nell'istanza in apps.yaml vincono su queste.
+# Si possono usare !secret (dal secrets.yaml di AppDaemon o di Home Assistant) e !env_var.
+# Quando salvi questo file l'app se ne accorge e riparte da sola (entro 20 secondi).
+
+# ------------------------------------------------------------------ il cubo
+host: 192.168.1.50                     # IP del SmallTV con glimmer + canale Pixel
+# token: !secret glimmer_token         # token API di glimmer (consigliato: vedi README);
+#                                      # se lo scrivi qui, tra virgolette: "0123"
+
+# ------------------------------------------------------------------ chi abita in casa
+character: alessio                     # alessio | bandit
+owner: Zio Mario                       # come il personaggio chiama la persona principale
+owner_entity: person.mario             # la sua entita' persona
+presence: [person.mario]               # Claude si usa solo se almeno una di loro e' in casa
+city: Bologna                          # usata nelle frasi
+about_owner: >-
+  Sei il nipotino di Mario, che chiami sempre Zio Mario. Lo zio ama la bicicletta e la cucina.
+nicknames:                             # come chiama le persone di casa (entita' -> nome)
+  person.mario: Zio Mario
+  person.anna: Zia Anna
+family: >-
+  In casa vivono Zio Mario e Zia Anna.
+birthdays:                             # "MM-GG": nome (tra virgolette)
+  "03-15": Zio Mario
+  "07-02": Zia Anna
+  "10-16": Alessio                     # anche il personaggio ha il suo compleanno
+# away_minutes: 15                     # uscite/rientri piu' brevi sono rimbalzi del GPS
+# arrive_group_seconds: 90            # chi arriva insieme riceve un saluto solo
+
+# ------------------------------------------------------------------ Claude (facoltativo)
+# Senza chiave usa frasi gia' pronte. Con la chiave le frasi le scrive Claude.
+anthropic_api_key: !secret anthropic_api_key
+# model: claude-haiku-5-5
+# claude_max_per_hour: 20              # tetto alle chiamate (chat compresa)...
+# claude_max_per_day: 150              # ...oltre il quale usa le frasi fisse
+# claude_thinking: false               # true: lascia ragionare il modello anche sulle frasi brevi
+                                       # (costa di piu': il ragionamento si paga come uscita)
+
+# ------------------------------------------------------------------ di cosa parla
+# sources: [casa, meteo, notizie, curiosita, aerei]
+# morning_at: "07:45"                  # buongiorno con le previsioni
+feeds:                                 # notizie: feed RSS, ognuno con la sua etichetta
+  - url: https://www.ilpost.it/bits/feed/
+    label: Il Post                     # "Il Post: <titolo>"
+  # - url: https://www.esempio.it/feed # il giornale della tua citta'
+  #   label: Dalla citta'
+  #   skip: [cronaca, giudiziaria, nera, necrologi, incidenti]   # categorie, o parole intere del titolo, da saltare
+  #   (la pubblicita' di gioco d'azzardo - casino', slot, scommesse - si salta sempre)
+# Le notizie tristi (morti, violenze, guerre, incidenti...) il personaggio non le dice mai.
+# local_feast: {from: "10-04", to: "10-04", name: "la festa di San Petronio"}
+# feste: true                          # costumi: Halloween, Natale, Capodanno, Pasqua, patrono
+# weather: weather.forecast_home       # altrimenti la prima entita' meteo
+# latitude: 44.49                      # altrimenti quelle di zone.home
+# longitude: 11.34
+
+# ------------------------------------------------------------------ aerei sopra casa
+# plane_radius_km: 15                  # aerei considerati per radar e chiacchiere
+# overhead_km: 3                       # "sopra casa": lo annuncia e si vede alla finestra
+# plane_min_altitude_m: 150            # piu' in basso (o quasi fermi) sono a terra: ignorati
+# plane_gap_minutes: 10                # al massimo un annuncio ogni 10 minuti
+
+# ------------------------------------------------------------------ chat, diario, lavagnetta
+# chat_entity: input_text.parla_con_alessio   # aiutante Testo: scrivi e risponde
+# chat_from: Zio Mario                 # chi scrive (predefinito: owner)
+# diary_at: "21:00"                    # da quest'ora scrive il diario della giornata
+# cards: true                          # grafici, radar e disegni sulla lavagnetta
+# chat_reply_phone: false             # 2.2: le risposte della chat anche sul telefono (Siri, CarPlay)
+# card_seconds: 40                    # minimo per lavagnette e schermate: restano show_minutes
+# drawing_hours: 3                     # un disegno al massimo ogni 3 ore
+# sensor: sensor.alessio_dice          # sensore con l'ultima frase
+# indoor_temperature:                  # sensori da mediare per "in casa ci sono N gradi"
+#   - climate.soggiorno                #   (climate: usa la temperatura misurata)
+#   - sensor.studio_temperatura        #   senza lista: la media dei climate.*
+
+# ------------------------------------------------------------------ voce (TTS di Home Assistant)
+# voice_player: media_player.studio
+# voice_tts: tts.google_translate_en_com
+# voice_language: it                   # con Edge TTS: it-IT-ElsaNeural
+# voice_options: {pitch: "+80Hz", rate: "+8%"}       # opzioni del motore TTS
+# voice_volume: 0.5                    # attenzione: su un PC cambia il volume di sistema
+# voice_kinds: [person.arrive, chat.reply, plane.overhead, holiday, director, diary,
+#               weather.rain_soon, weather.wind, say, me.reminder, home.action]
+# voice_switch: input_boolean.voce_alessio   # interruttore in plancia: spento = muto
+
+# ------------------------------------------------------------------ la mente
+# age: 10                             # (2.0) eta' fissa di Alessio: da 8 in su ha l'aspetto da ragazzino
+# grow: false                          # true = cresce come prima della 2.0 (Bandit no):
+# start_age: 2                         #   eta' il primo giorno...
+# grow_days: 30                        #   ...un anno ogni 30 giorni...
+# max_age: 12                          #   ...fino a 12 anni
+# night_job_at: "03:30"                # di notte riordina i ricordi (la domenica anche il carattere)
+# batch: true                          # lavoro notturno con l'API batch: meta' prezzo
+# feedback_up: input_button.alessio_mi_piace      # pulsanti in plancia: 👍 / 👎 sull'ultima frase
+# feedback_down: input_button.alessio_non_mi_piace
+
+# ------------------------------------------------------------------ autonomia (spenta di default)
+# autonomy: false                      # true = il regista puo' mandare un avviso sul telefono
+# autonomy_switch: input_boolean.alessio_autonomo # interruttore in plancia: spento = niente avvisi
+# notify: notify.mobile_app_telefono   # notifiche sul telefono (promemoria, avvisi)
+# Dalla 2.2 luci a casa vuota e clima con la finestra aperta sono blueprint di Home Assistant
+# (blueprints/automation/coinquilino/): lights_off_when_empty, windows... non servono piu'.
+
+# ------------------------------------------------------------------ comandi alla casa (spenti di default)
+# Consigliato: il server MCP di Home Assistant (integrazione "Model Context Protocol Server", solo
+# Device control, Read-only spento). Comanda i dispositivi esposti agli assistenti vocali; conferme,
+# verifica e log restano del personaggio (control_confirm vale anche qui).
+# ha_mcp_url: http://homeassistant.local:8123/api/mcp
+# ha_mcp_token: !secret ha_mcp_token   # token di lunga durata (profilo > Sicurezza)
+# In alternativa, un elenco di entita' (usato solo senza ha_mcp_url):
+# In chat (e da Telegram, solo chi e' in telegram_commanders) puoi chiedere "spegni la luce dello
+# studio" o "metti il salone a 20 gradi". Solo luci e clima, solo le entita' elencate qui.
+# Le domande ("chi c'e' in casa?", "quanti gradi nello studio?") funzionano anche senza lista.
+# control:                             # lista bianca (anche con *): senza lista, niente comandi
+#   - light.*
+#   - climate.salone
+# control_confirm: [climate]           # chiede "Devo...? si'/no" per questi domini; chiede sempre
+#                                      # conferma per piu' di 3 entita' o se chi comanda e' fuori casa
+# control_switch: input_boolean.alessio_comandi   # interruttore in plancia: spento = niente comandi
+# control_verify_seconds: 8            # "fatto" solo se lo stato cambia entro questi secondi
+
+# ------------------------------------------------------------------ Telegram (facoltativo)
+# Serve l'integrazione "Telegram bot" di Home Assistant (piattaforma Polling) con gli ID chat
+# autorizzati: vedi README. Alessio risponde ai messaggi e ci manda gli avvisi.
+# telegram_chats:                      # ID chat -> nome (chi scrive)
+#   123456789: Zio Mario
+#   987654321: Zia Anna
+# telegram_commanders: [123456789]     # chi puo' comandare la casa (predefinito: la chat di owner)
+# telegram_notify: true                # avvisi su Telegram (con 👍/👎); notify: resta di riserva
+# telegram_aloud: false                # true: le risposte ai messaggi Telegram anche a voce in casa
+# telegram_event: event.alessio_update_event   # l'entita' evento del bot (facoltativa)
+# telegram_bot: 01J...                 # config_entry_id, solo se in Home Assistant hai piu' bot
+
+# ------------------------------------------------------------------ foto (1.6)
+# Le foto mandate al bot Telegram: subito sullo schermo, poi a giro. Restano in casa.
+# photos: true
+# photo_day_max: 3                     # 2.1: ogni foto al massimo 3 volte al giorno
+# photo_every_minutes: 30              # una foto ogni 30 minuti (prima della 2.0: 10)...
+# photo_seconds: 40                    # ...per 40 secondi (mai di notte)
+# photo_max: 50                        # le piu' vecchie si cancellano
+# photo_inbox: /homeassistant/telegram_bot   # dove Home Assistant salva le foto del bot (predefinito)
+# photo_dir: /media/coinquilino        # l'album (predefinito, se l'add-on vede /media): si gestisce
+#                                      # anche da Media > Media locali (aggiungi, cancella)
+# photo_saturation: 1.1                # colori delle foto (Alessio usa saturation)
+# photo_select: input_select.alessio_foto            # plancia: elenco delle foto (Menu a discesa)
+# photo_show_button: input_button.alessio_mostra_foto # plancia: "mostra adesso"
+# photo_delete_button: input_button.alessio_togli_foto # plancia: "togli dall'album"
+
+# ------------------------------------------------------------------ messaggi di sua iniziativa (1.6)
+# message_gap_hours: 3                 # tetto unico: un messaggio ogni 3 ore, mai di notte
+#                                      # (i promemoria chiesti arrivano sempre)
+# spontaneous: true                    # un'idea o una domanda al giorno, il riassunto la domenica
+# ideas_avoid: [riscaldamento, Tado]   # argomenti su cui non proporre idee (ci pensi tu)
+
+# ------------------------------------------------------------------ aerei: quanto ne parla (1.6)
+# plane_topic_minutes: 60              # al massimo un discorso sugli aerei all'ora, in tutto
+
+# ------------------------------------------------------------------ plancia (1.6)
+# state_sensor: sensor.alessio_stato   # umore, ricordi, azioni, idee... (vedi examples/plancia.yaml)
+# preview: /homeassistant/www/coinquilino.png   # anteprima del cubo per la plancia (facoltativa)
+
+# ------------------------------------------------------------------ cameretta, schermate, casa (2.0)
+# scenes: true                         # la cameretta cambia ogni giorno (stagione, calendario, mensola)
+# screens: true                        # schermate a tutto cubo: settimana del meteo, casa, corrente
+# power_sensor: sensor.casa_potenza    # watt di adesso (facoltativo, per la schermata della corrente)
+# energy_sensor: sensor.casa_energia_oggi   # kWh da mezzanotte (facoltativo)
+# room_change_degrees: 1.5             # una stanza che cambia di tanto in un'ora: lo dice
+# chatter_day_max:                     # quante volte al giorno al massimo, per tipo (nomi del log)
+#   news.headline: 8
+#   home.people: 2
+#   weather.now: 4
+
+# ------------------------------------------------------------------ agenda di Home Assistant (2.2)
+# Citofono, batterie, aggiornamenti, pacchi e "sta arrivando" sono blueprint di Home Assistant
+# (blueprints/automation/coinquilino/) e parlano con l'evento coinquilino_say.
+# reminders_todo: [todo.alessio]       # liste todo: le voci con l'ora le dice; "ricordami" ci scrive
+# calendars: [calendar.famiglia]       # appuntamenti di oggi e domani
+# calendar_minutes: 60                 # quanti minuti prima avvisa di un appuntamento
+# workday: binary_sensor.workday_sensor   # integrazione Workday: giorno lavorativo o festivo
+
+# ------------------------------------------------------------------ spesa delle API
+# api_price_in: 0.10                   # $ per milione di token (Claude Haiku 5.5)
+# api_price_out: 0.50
+# api_budget_month: 2                  # $ al mese: avvisa all'80%
+
+# ------------------------------------------------------------------ quanto parla
+# min_gap_minutes: 15                  # tra un avviso e l'altro (gli urgenti passano sempre)
+# max_per_hour: 4
+# show_minutes: 20                     # quanto resta la nuvoletta
+# talk_every_minutes: 5                # chiacchiere gratuite dai dati di casa e dal meteo
+# filler_show: true                    # le chiacchiere portano il cubo sul canale Pixel
+# chatter_minutes: 25                  # "regista": ogni ~25 minuti Claude sceglie cosa dire
+
+# ------------------------------------------------------------------ umore e notte
+# night_start: 23                      # dorme dalle 23...
+# night_end: 7                         # ...alle 7
+# tired_at: 80                         # stanco sopra l'80% della sessione Claude
+# moto_days: [5, 6]                    # giornata da moto: sabato e domenica (0 = lunedi')...
+# moto_min: 15                         # ...tra 15 e 30 gradi
+# moto_max: 30
+
+# ------------------------------------------------------------------ colori del pannello
+# gamma: 1.6                           # >1 scurisce i mezzitoni
+# saturation: 1.4                      # >1 colori piu' carichi
+# night_dim: 0.25                      # luminosita' dell'immagine di notte (se il cubo resta su Alessio)
+# night_clock: alessio                 # di notte: alessio = il suo quadrante (ora grande, data,
+                                       # luna, stelle, lui che dorme; cambia una volta al minuto)
+                                       # glimmer = il quadrante notturno di glimmer
+                                       # off = la cameretta scurita (night_dim)

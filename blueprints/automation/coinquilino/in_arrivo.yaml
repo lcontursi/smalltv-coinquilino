@@ -1,0 +1,63 @@
+blueprint:
+  name: "Coinquilino: qualcuno sta arrivando"
+  description: >-
+    Con l'integrazione Proximity: quando una persona si avvicina a casa sotto una certa distanza,
+    il coinquilino lo dice a chi è in casa (con le sue parole, se c'è Claude).
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/in_arrivo.yaml
+  input:
+    distance:
+      name: Distanza (sensore di Proximity)
+      selector:
+        entity:
+          domain: sensor
+          integration: proximity
+    direction:
+      name: Direzione (sensore di Proximity)
+      selector:
+        entity:
+          domain: sensor
+          integration: proximity
+    who:
+      name: Chi
+      selector:
+        text: {}
+    km:
+      name: Sotto quanti km
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 50
+          unit_of_measurement: km
+
+trigger_variables:
+  distance: !input distance
+  km: !input km
+
+triggers:
+  - trigger: template
+    value_template: >-
+      {% set d = states(distance) | float(-1) %}
+      {% set u = state_attr(distance, 'unit_of_measurement') %}
+      {{ d >= 0 and (d / 1000 if u == 'm' else d) < km }}
+
+variables:
+  who: !input who
+  unit: "{{ state_attr(distance, 'unit_of_measurement') }}"
+  quanti: "{{ (states(distance) | float(0) / (1000 if unit == 'm' else 1)) | round(0) | int }}"
+
+conditions:
+  - condition: state
+    entity_id: !input direction
+    state: towards
+
+actions:
+  - event: coinquilino_say
+    event_data:
+      about: "{{ who }} sta tornando a casa, è a circa {{ quanti }} km"
+      away: skip
+      night: skip
+      key: "in arrivo {{ who }}"
+      repeat_hours: 2
+mode: single

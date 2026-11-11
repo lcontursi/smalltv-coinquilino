@@ -1,0 +1,24 @@
+# dati personali: mai su GitHub
+coinquilino_personale.yaml
+!examples/coinquilino_personale.yaml
+anthropic_key.txt
+# note personali di Claude Code
+CLAUDE.local.md
+.claude/settings.local.json
+*.key
+# file scritti dall'app
+memoria.json
+memoria_*.json
+proposte*.md
+foto/
+foto_*/
+smalltv_fonts/
+# python
+__pycache__/
+*.pyc
+# firmware compilato
+*.bin
+.pio/
+.pytest_cache/
+.ruff_cache/
+.venv/

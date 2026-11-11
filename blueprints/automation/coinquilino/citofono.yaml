@@ -1,0 +1,78 @@
+blueprint:
+  name: "Coinquilino: citofono"
+  description: >-
+    Quando suonano il coinquilino sta zitto un minuto e se lo ricorda; se nessuno apre entro pochi
+    minuti lo dice sul cubo e sul telefono (di notte al risveglio). Se aprite, il saluto a chi
+    entra parte subito.
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/citofono.yaml
+  input:
+    ring:
+      name: Suonata (entità event, es. "ding" di Ring)
+      selector:
+        entity:
+          domain: event
+    opened:
+      name: Apertura dal citofono (entità event)
+      selector:
+        entity:
+          domain: event
+    minutes:
+      name: Minuti per rispondere
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 15
+          unit_of_measurement: min
+    quiet:
+      name: Secondi di silenzio dopo la suonata
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: s
+
+triggers:
+  - trigger: state
+    entity_id: !input ring
+    not_from:
+      - unavailable
+      - unknown
+    not_to:
+      - unavailable
+      - unknown
+
+variables:
+  ora: "{{ now().strftime('%H:%M') }}"
+
+actions:
+  - event: coinquilino_say
+    event_data:
+      remember: "hanno suonato al citofono alle {{ ora }}"
+      quiet_seconds: !input quiet
+  - wait_for_trigger:
+      - trigger: state
+        entity_id: !input opened
+        not_from:
+          - unavailable
+          - unknown
+        not_to:
+          - unavailable
+          - unknown
+    timeout:
+      minutes: !input minutes
+  - if: "{{ wait.trigger is not none }}"
+    then:
+      - event: coinquilino_say
+        event_data:
+          remember: qualcuno ha aperto il portone dal citofono
+          expect_arrival: true
+    else:
+      - event: coinquilino_say
+        event_data:
+          text: "Alle {{ ora }} hanno suonato al citofono e nessuno ha aperto."
+          telegram: true
+          night: defer
+mode: single

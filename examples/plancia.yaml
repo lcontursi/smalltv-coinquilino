@@ -1,0 +1,151 @@
+# Plancia di Alessio per Home Assistant (una vista da incollare).
+#
+# Come si usa:
+#   Impostazioni > Plance > Aggiungi plancia > "Nuova plancia da zero", aprila,
+#   matita in alto a destra > tre puntini > "Editor di configurazione grezza",
+#   incolla tutto questo file al posto di quello che c'e' e salva.
+#
+# Nomi delle entita' (cambiali se i tuoi sono diversi):
+#   sensor.alessio_dice            l'ultima frase (lo crea l'app)
+#   sensor.alessio_stato           umore, eta', ricordi, azioni, idee... (lo crea l'app, 1.6)
+#   sensor.coinquilino_costo_api   la spesa delle API (lo crea l'app)
+#   input_text.parla_con_alessio   la chat (aiutante Testo)
+#   input_boolean.voce_alessio     voce si'/no (aiutante Interruttore, facoltativo: voice_switch)
+#   input_boolean.alessio_autonomo autonomia si'/no (facoltativo: autonomy_switch)
+#   input_boolean.alessio_comandi  comandi alla casa si'/no (facoltativo: control_switch)
+#   input_button.alessio_mi_piace / input_button.alessio_non_mi_piace   (feedback_up / feedback_down)
+#   input_select.alessio_foto      elenco delle foto (aiutante Menu a discesa; photo_select, 1.7)
+#   input_button.alessio_mostra_foto / input_button.alessio_togli_foto   (photo_show_button / photo_delete_button)
+#   camera.anteprima_cubo          facoltativa: vedi "Anteprima del cubo" nel README
+# Le righe di entita' che non esistono compaiono come "Entita' non disponibile": toglile pure.
+
+title: Alessio
+views:
+  - title: Alessio
+    path: alessio
+    icon: mdi:baby-face-outline
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |-
+              ## {{ states('sensor.alessio_dice') }}
+
+              <small>{{ state_attr('sensor.alessio_dice', 'tipo') }} ·
+              {{ state_attr('sensor.alessio_dice', 'ora') }}</small>
+          - type: entities
+            entities:
+              - entity: input_text.parla_con_alessio
+                name: Scrivi ad Alessio
+          - type: horizontal-stack
+            cards:
+              - type: button
+                entity: input_button.alessio_mi_piace
+                name: Mi piace
+                icon: mdi:thumb-up
+                tap_action: {action: toggle}
+              - type: button
+                entity: input_button.alessio_non_mi_piace
+                name: Non mi piace
+                icon: mdi:thumb-down
+                tap_action: {action: toggle}
+
+      - type: entities
+        title: Interruttori
+        entities:
+          - entity: input_boolean.voce_alessio
+            name: Parla ad alta voce
+          - entity: input_boolean.alessio_autonomo
+            name: Fa da solo (autonomia)
+          - entity: input_boolean.alessio_comandi
+            name: Accetta comandi alla casa
+
+      - type: markdown
+        title: Come sta
+        content: |-
+          {% set s = 'sensor.alessio_stato' %}
+          **Umore:** {{ states(s) }} · **Anni:** {{ state_attr(s, 'eta') }}
+          {%- if state_attr(s, 'festa') %} · **Festa:** {{ state_attr(s, 'festa') }}{% endif %}
+
+          **Notte:** {{ state_attr(s, 'notte') }} · **Foto nell'album:** {{ state_attr(s, 'foto') }}
+          · **Ultimo messaggio spontaneo:** {{ state_attr(s, 'ultimo_messaggio') or '—' }}
+
+          **Carattere:** {{ state_attr(s, 'carattere') }}
+
+          **Promemoria:**
+          {%- for p in state_attr(s, 'promemoria') or [] %}
+          - {{ p }}
+          {%- else %} nessuno{% endfor %}
+
+      - type: markdown
+        title: Cosa ricorda
+        content: |-
+          {%- for r in state_attr('sensor.alessio_stato', 'ricordi') or [] %}
+          - {{ r }}
+          {%- else %}
+          Ancora niente: i ricordi si riordinano ogni notte.
+          {%- endfor %}
+
+      # 2.2: luci, citofono, batterie... sono automazioni di Home Assistant (blueprint coinquilino):
+      # il registro mostra quando sono scattate. Metti qui le tue automazioni coinquilino_*.
+      - type: logbook
+        title: Cosa ha fatto in casa
+        hours_to_show: 72
+        target:
+          entity_id:
+            - automation.coinquilino_luci_accese_a_casa_vuota
+            - automation.coinquilino_citofono
+            - automation.coinquilino_batterie_scariche
+            - automation.coinquilino_aggiornamenti
+
+      - type: markdown
+        title: Comandi dalla chat
+        content: |-
+          {%- for a in state_attr('sensor.alessio_stato', 'azioni') or [] %}
+          - {{ a }}
+          {%- else %}
+          Nessun comando.
+          {%- endfor %}
+
+      - type: markdown
+        title: Le sue idee
+        content: |-
+          {%- for i in state_attr('sensor.alessio_stato', 'idee') or [] %}
+          - {{ i }}
+          {%- else %}
+          Ancora nessuna idea.
+          {%- endfor %}
+
+      - type: vertical-stack
+        cards:
+          - type: entity
+            entity: sensor.coinquilino_costo_api
+            name: Biberon delle API (questo mese)
+          - type: history-graph
+            hours_to_show: 720
+            entities:
+              - entity: sensor.coinquilino_costo_api
+                name: Spesa API
+
+      - type: entities
+        title: Album delle foto
+        entities:
+          - entity: input_select.alessio_foto
+            name: Foto
+          - type: buttons
+            entities:
+              - entity: input_button.alessio_mostra_foto
+                name: Mostra adesso
+                icon: mdi:image-frame
+                tap_action: {action: toggle}
+              - entity: input_button.alessio_togli_foto
+                name: Togli dall'album
+                icon: mdi:image-remove
+                tap_action: {action: toggle}
+
+      - type: picture-entity
+        entity: camera.anteprima_cubo
+        show_name: false
+        show_state: false
+        camera_view: auto
+        aspect_ratio: "6:5"              # lo schermo di Alessio e' 240x200: intero, senza tagli

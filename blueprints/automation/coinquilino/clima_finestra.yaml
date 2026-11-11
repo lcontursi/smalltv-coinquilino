@@ -1,0 +1,76 @@
+blueprint:
+  name: "Coinquilino: clima spento con la finestra aperta"
+  description: >-
+    Finestra aperta da qualche minuto con il clima acceso: spegne il clima, lo dice, e quando la
+    finestra si richiude lo rimette com'era.
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/clima_finestra.yaml
+  input:
+    window:
+      name: Finestra
+      selector:
+        entity:
+          domain: binary_sensor
+    climate:
+      name: Clima
+      selector:
+        entity:
+          domain: climate
+    minutes:
+      name: Minuti di finestra aperta
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+
+triggers:
+  - trigger: state
+    entity_id: !input window
+    to: "on"
+    for:
+      minutes: !input minutes
+
+variables:
+  climate: !input climate
+  window: !input window
+  modo: "{{ states(climate) }}"
+  nome: "{{ state_attr(window, 'friendly_name') | lower }}"
+
+conditions:
+  - "{{ modo not in ['off', 'unavailable', 'unknown'] }}"
+
+actions:
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: !input climate
+    data:
+      hvac_mode: "off"
+  - delay:
+      seconds: 10
+  - event: coinquilino_say
+    event_data:
+      text: >-
+        {% if is_state(climate, 'off') %}La {{ nome }} è aperta: ho spento il clima. Lo riaccendo
+        quando la chiudete!{% else %}La {{ nome }} è aperta e il clima è acceso: non sono riuscito a
+        spegnerlo.{% endif %}
+      telegram: true
+  - condition: template
+    value_template: "{{ is_state(climate, 'off') }}"
+  - wait_for_trigger:
+      - trigger: state
+        entity_id: !input window
+        to: "off"
+    timeout:
+      hours: 12
+    continue_on_timeout: false
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: !input climate
+    data:
+      hvac_mode: "{{ modo }}"
+  - event: coinquilino_say
+    event_data:
+      text: "Finestra chiusa: ho riacceso il clima."
+mode: single

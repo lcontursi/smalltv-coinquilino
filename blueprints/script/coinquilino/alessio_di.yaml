@@ -1,0 +1,75 @@
+blueprint:
+  name: "Coinquilino: di' qualcosa"
+  description: >-
+    Fa dire una cosa al coinquilino del cubo (evento coinquilino_say). Usalo come azione nelle
+    automazioni: testo pronto oppure argomento da far scrivere a Claude con la sua voce.
+  domain: script
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/script/coinquilino/alessio_di.yaml
+
+fields:
+  text:
+    name: Testo
+    description: La frase pronta (se c'è, Claude non viene chiamato).
+    selector:
+      text:
+        multiline: true
+  about:
+    name: Argomento
+    description: In alternativa al testo, cosa deve dire con le sue parole.
+    selector:
+      text:
+        multiline: true
+  telegram:
+    name: Anche sul telefono
+    default: false
+    selector:
+      boolean: {}
+  away:
+    name: A casa vuota
+    default: say
+    selector:
+      select:
+        options:
+          - label: Lo dice comunque
+            value: say
+          - label: Solo sul telefono
+            value: notify
+          - label: Niente
+            value: skip
+  night:
+    name: Di notte
+    default: say
+    selector:
+      select:
+        options:
+          - label: Lo dice comunque
+            value: say
+          - label: Al risveglio
+            value: defer
+          - label: Niente
+            value: skip
+  key:
+    name: Chiave
+    description: Se impostata, la stessa cosa non torna prima di "Ripeti dopo".
+    selector:
+      text: {}
+  repeat_hours:
+    name: Ripeti dopo (ore)
+    default: 12
+    selector:
+      number:
+        min: 0
+        max: 168
+        unit_of_measurement: h
+
+sequence:
+  - event: coinquilino_say
+    event_data:
+      text: "{{ text | default('') }}"
+      about: "{{ about | default('') }}"
+      telegram: "{{ telegram | default(false) }}"
+      away: "{{ away | default('say') }}"
+      night: "{{ night | default('say') }}"
+      key: "{{ key | default('') }}"
+      repeat_hours: "{{ repeat_hours | default(12) }}"
+mode: queued

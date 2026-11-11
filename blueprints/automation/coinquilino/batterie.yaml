@@ -1,0 +1,61 @@
+blueprint:
+  name: "Coinquilino: batterie scariche"
+  description: >-
+    Una volta al giorno, se qualche sensore con batteria è sotto la soglia, il coinquilino lo dice
+    (a casa vuota sul telefono). La stessa lista non torna prima di tre giorni.
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/batterie.yaml
+  input:
+    threshold:
+      name: Soglia
+      default: 20
+      selector:
+        number:
+          min: 5
+          max: 50
+          unit_of_measurement: "%"
+    at:
+      name: A che ora
+      default: "10:00:00"
+      selector:
+        time: {}
+    exclude:
+      name: Da ignorare
+      default: []
+      selector:
+        entity:
+          domain: sensor
+          device_class: battery
+          multiple: true
+
+triggers:
+  - trigger: time
+    at: !input at
+
+variables:
+  threshold: !input threshold
+  exclude: !input exclude
+  basse: >-
+    {% set ns = namespace(l=[]) %}
+    {% for s in states.sensor | selectattr('attributes.device_class', 'defined')
+         | selectattr('attributes.device_class', 'eq', 'battery') %}
+      {% if s.entity_id not in exclude and s.state | is_number and s.state | float < threshold %}
+        {% set ns.l = ns.l + [s.name ~ ' (' ~ (s.state | float | round(0) | int) ~ '%)'] %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.l }}
+
+conditions:
+  - "{{ basse | count > 0 }}"
+
+actions:
+  - event: coinquilino_say
+    event_data:
+      text: >-
+        {% if basse | count == 1 %}Batteria quasi scarica: {{ basse[0] }}.{% else %}Batterie quasi
+        scariche: {{ basse[:3] | join(', ') }}{% if basse | count > 3 %} e altre {{ basse | count - 3
+        }}{% endif %}.{% endif %}
+      away: notify
+      key: "batterie {{ basse | join(',') }}"
+      repeat_hours: 72
+mode: single

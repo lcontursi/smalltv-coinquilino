@@ -1,0 +1,416 @@
+diff --git a/data/web/index.html b/data/web/index.html
+index 825232e..4cd4174 100644
+--- a/data/web/index.html
++++ b/data/web/index.html
+@@ -478,6 +478,7 @@ function app() {
+         {key: 'showWeather',  label: 'Weather now',    needs: loc ? 'ready' : 'needs location', ready: loc},
+         {key: 'showForecast', label: '3-day forecast', needs: loc ? 'ready' : 'needs location', ready: loc},
+         {key: 'showClock',    label: 'Clock',          needs: 'ready', ready: true},
++        {key: 'showPixel',    label: 'Coinquilino',    needs: 'ready', ready: true},
+         {key: 'showInfo',     label: 'Device info',    needs: 'ready', ready: true},
+       ];
+     },
+diff --git a/platformio.ini b/platformio.ini
+index 1629950..49982cf 100644
+--- a/platformio.ini
++++ b/platformio.ini
+@@ -50,7 +50,7 @@ build_flags =
+ 
+     ; --- Build flavor ---
+     -Os
+-    -D FW_VERSION="\"0.22.0-glimmer\""
++    -D FW_VERSION="\"0.22.0-glimmer-pixel.2\""
+ 
+ monitor_speed = 115200
+ 
+diff --git a/src/channels/ch_pixel.cpp b/src/channels/ch_pixel.cpp
+new file mode 100644
+index 0000000..499540e
+--- /dev/null
++++ b/src/channels/ch_pixel.cpp
+@@ -0,0 +1,96 @@
++// Pixel — "il coinquilino": a screen the home server paints.
++//
++//   y=0..29    header: HH:MM (VT323-32) left, "SAB 24 OTT" (DMMono-11) right
++//   y=30..229  scene area 240x200, filled by POST /frame from the server
++//   y=230      indicator strip (main.cpp), untouched
++//
++// The device never holds an image: /frame streams raw RGB565 big-endian
++// bytes straight into the ST7789 window (see web.cpp). Each time the channel
++// becomes visible, draw() bumps an activation counter; the server polls
++// GET /pixel and repaints the full scene when that counter changes.
++
++#include "channel.h"
++#include "display.h"
++#include "theme.h"
++#include "config.h"
++#include <time.h>
++#include <string.h>
++
++static constexpr int HEADER_H = 30;
++static constexpr int SCENE_Y  = 30;
++static constexpr int SCENE_H  = 200;
++
++static uint32_t s_seq = 0;            // activation counter
++static uint32_t s_lastFrameMs = 0;    // millis() of the last completed frame
++static int      s_lastMin = -1;
++
++static const char* const kDays[]   = {"DOM","LUN","MAR","MER","GIO","VEN","SAB"};
++static const char* const kMonths[] = {"GEN","FEB","MAR","APR","MAG","GIU",
++                                      "LUG","AGO","SET","OTT","NOV","DIC"};
++
++// ── Exposed to web.cpp ──────────────────────────────────────────────────────
++// Testo d'attesa mostrato finche' non arriva la scena: lo imposta il NUC
++// (POST /pixel {"wait":"arriva Alessio..."}), cosi' segue il personaggio.
++static char s_wait[48] = "arriva...";
++const char* pixelWait()      { return s_wait; }
++void     pixelSetWait(const char* t) { strncpy(s_wait, t, sizeof(s_wait) - 1); s_wait[sizeof(s_wait) - 1] = 0; }
++
++uint32_t pixelSeq()          { return s_seq; }
++uint32_t pixelLastFrameMs()  { return s_lastFrameMs; }
++void     pixelFrameDone()    { s_lastFrameMs = millis(); }
++void     pixelSceneRect(int& x, int& y, int& w, int& h) { x = 0; y = SCENE_Y; w = SCREEN_W; h = SCENE_H; }
++
++static void paintHeader() {
++    time_t now = time(nullptr);
++    struct tm t;
++    localtime_r(&now, &t);
++
++    char hm[6];
++    snprintf(hm, sizeof(hm), "%02d:%02d", t.tm_hour, t.tm_min);
++    char date[16];
++    snprintf(date, sizeof(date), "%s %d %s", kDays[t.tm_wday], t.tm_mday, kMonths[t.tm_mon]);
++
++    // Clip to the header so the 32-px font can never touch the scene.
++    tft.setViewport(0, 0, SCREEN_W, HEADER_H);
++    tft.fillRect(0, 0, SCREEN_W, HEADER_H, Theme::BG);
++
++    Display::useFont("VT323-32");
++    tft.setTextDatum(ML_DATUM);
++    tft.setTextColor(Theme::INK, Theme::BG);
++    tft.drawString(hm, 10, HEADER_H / 2);
++
++    Display::useFont("DMMono-11");
++    tft.setTextDatum(MR_DATUM);
++    tft.setTextColor(Theme::MUTED, Theme::BG);
++    tft.drawString(date, SCREEN_W - 10, HEADER_H / 2);
++    tft.resetViewport();
++
++    s_lastMin = t.tm_min;
++}
++
++bool chPixelEnabled(const ChannelCtx& ctx) {
++    return ctx.settings && ctx.settings->showPixel
++        && time(nullptr) > 1000000000L;
++}
++
++void chPixelDraw(const ChannelCtx& ctx) {
++    (void)ctx;
++    Display::clear();
++    paintHeader();
++
++    // Placeholder until the server sends the scene (usually < 2 s).
++    Display::useFont("PixelifySans-14");
++    tft.setTextDatum(MC_DATUM);
++    tft.setTextColor(Theme::MUTED, Theme::BG);
++    tft.drawString(s_wait, SCREEN_W / 2, SCENE_Y + SCENE_H / 2);
++
++    s_seq++;
++}
++
++void chPixelTick(const ChannelCtx& ctx) {
++    (void)ctx;
++    time_t now = time(nullptr);
++    struct tm t;
++    localtime_r(&now, &t);
++    if (t.tm_min != s_lastMin) paintHeader();
++}
+diff --git a/src/core/display.cpp b/src/core/display.cpp
+index f4b3400..bbb59b3 100644
+--- a/src/core/display.cpp
++++ b/src/core/display.cpp
+@@ -462,6 +462,7 @@ uint16_t Theme::channelColor(const char* name) {
+     if (!strcmp(name, "Forecast"))return SKY;
+     if (!strcmp(name, "Clock"))   return AMBER;
+     if (!strcmp(name, "Home"))    return AMBER;
++    if (!strcmp(name, "Pixel"))   return CORAL;
+     if (!strcmp(name, "AI"))      return INK_DIM;
+     if (!strcmp(name, "Trend"))   return MINT;
+     if (!strcmp(name, "Info"))    return MINT;
+diff --git a/src/core/storage.cpp b/src/core/storage.cpp
+index 6845810..2ea480e 100644
+--- a/src/core/storage.cpp
++++ b/src/core/storage.cpp
+@@ -39,6 +39,7 @@ Settings Storage::load() {
+     s.showCodex     = doc["show_codex"]     | true;
+     s.showHome      = doc["show_home"]      | true;
+     s.showClock     = doc["show_clock"]     | true;
++    s.showPixel     = doc["show_pixel"]     | true;
+     s.showForecast  = doc["show_forecast"]  | true;
+     s.showAiDash    = doc["show_aidash"]    | true;
+     s.showInfo      = doc["show_info"]      | true;
+@@ -100,6 +101,7 @@ bool Storage::save(const Settings& s) {
+     doc["show_codex"]    = s.showCodex;
+     doc["show_home"]     = s.showHome;
+     doc["show_clock"]    = s.showClock;
++    doc["show_pixel"]    = s.showPixel;
+     doc["show_forecast"] = s.showForecast;
+     doc["show_aidash"]   = s.showAiDash;
+     doc["show_info"]     = s.showInfo;
+diff --git a/src/core/storage.h b/src/core/storage.h
+index 40f7ad1..720218d 100644
+--- a/src/core/storage.h
++++ b/src/core/storage.h
+@@ -19,6 +19,7 @@ struct Settings {
+     bool     showCodex     = true;
+     bool     showHome      = true;
+     bool     showClock     = true;
++    bool     showPixel     = true;   // coinquilino (frames from the home server)
+     bool     showForecast  = true;
+     bool     showAiDash    = true;
+     bool     showInfo      = true;
+diff --git a/src/core/web.cpp b/src/core/web.cpp
+index 6f34b41..08c6a27 100644
+--- a/src/core/web.cpp
++++ b/src/core/web.cpp
+@@ -11,6 +11,7 @@
+ //   POST /push         — attention card (see attention_json.h); GET lists, /push/clear removes
+ //   POST /hook         — trimmed agent hook event (tools/agents/glimmer-hook.sh)
+ //   POST /api/channel  — show a channel / next
++//   GET  /pixel, POST /frame — Pixel channel (coinquilino), see below
+ //   POST /mcp          — JSON-RPC: push_card, clear_card, list_cards, get_state, show/next_channel
+ //   The API token (when set) guards /push*, /hook, /mcp, /api/refresh, /api/channel.
+ //   POST /update       — OTA firmware + filesystem (ESP8266HTTPUpdateServer)
+@@ -49,6 +50,7 @@ extern uint32_t    mainMinMaxBlock();
+ extern uint32_t    mainNextFetchInMs();
+ extern bool        mainShowChannel(const char* name);
+ extern void        mainNextChannel();
++extern void        mainHoldChannel(uint32_t sec);
+ extern void        mainSettingsChanged();
+ 
+ // ── Helpers ─────────────────────────────────────────────────────────────────
+@@ -195,6 +197,7 @@ static void handleApiGetSettings() {
+     d["showWeather"]   = s.showWeather;
+     d["showHome"]      = s.showHome;
+     d["showClock"]     = s.showClock;
++    d["showPixel"]     = s.showPixel;
+     d["showForecast"]  = s.showForecast;
+     d["showAiDash"]    = s.showAiDash;
+     d["showInfo"]      = s.showInfo;
+@@ -289,6 +292,7 @@ static void applyIfPresent(Settings& s, JsonDocument& d) {
+     applyBool("showWeather",  s.showWeather);
+     applyBool("showHome",     s.showHome);
+     applyBool("showClock",    s.showClock);
++    applyBool("showPixel",    s.showPixel);
+     applyBool("showForecast", s.showForecast);
+     applyBool("showAiDash",   s.showAiDash);
+     applyBool("showInfo",     s.showInfo);
+@@ -622,6 +626,111 @@ static void handleMcp() {
+     server.send(200, "application/json", out);
+ }
+ 
++// ── Pixel channel: stream frames straight to the panel ─────────────────────
++//   GET  /pixel  → {"active":bool,"seq":N,"x":0,"y":30,"w":240,"h":200,"age_ms":N,"wait":"..."}
++//   POST /pixel  {"wait":"arriva Alessio..."} — testo d'attesa
++//   POST /frame?x=&y=&w=&h=  multipart field "frame" = w*h*2 bytes RGB565 big-endian.
++//   Coordinates are relative to the scene area; the window is clipped to it.
++//   Only painted while the Pixel channel is on screen (else 409, nothing drawn).
++extern uint32_t pixelSeq();
++extern uint32_t pixelLastFrameMs();
++extern void     pixelFrameDone();
++extern void     pixelSceneRect(int& x, int& y, int& w, int& h);
++extern const char* pixelWait();
++extern void     pixelSetWait(const char* t);
++
++static bool     s_frameOk    = false;   // this upload is being painted
++static uint32_t s_frameLeft  = 0;       // bytes still accepted for the window
++static int      s_frameCarry = -1;      // odd byte held over between chunks
++static bool     s_frameSwap  = false;
++static const char* s_frameErr = nullptr;
++static bool     s_frameSeen  = false;   // a "frame" part arrived in this request
++
++static bool pixelOnScreen() {
++    return !strcmp(mainActiveChannelName(), "Pixel");
++}
++
++static void handlePixelState() {
++    int x, y, w, h; pixelSceneRect(x, y, w, h);
++    uint32_t last = pixelLastFrameMs();
++    JsonDocument d;
++    d["active"] = pixelOnScreen();
++    d["seq"]    = pixelSeq();
++    d["x"] = x; d["y"] = y; d["w"] = w; d["h"] = h;
++    d["age_ms"] = last ? (long)(millis() - last) : -1L;
++    d["wait"]   = pixelWait();
++    String out; serializeJson(d, out);
++    server.send(200, "application/json", out);
++}
++
++// POST /pixel {"wait":"arriva Alessio..."} — testo d'attesa del canale (max 47 caratteri ASCII)
++static void handlePixelSet() {
++    if (!checkAuth()) { server.send(401, "application/json", "{\"error\":\"unauthorized\"}"); return; }
++    JsonDocument d;
++    if (deserializeJson(d, server.arg("plain"))) {
++        server.send(400, "application/json", "{\"error\":\"bad json\"}");
++        return;
++    }
++    if (d["wait"].is<const char*>()) pixelSetWait(d["wait"].as<const char*>());
++    handlePixelState();
++}
++
++static void frameUpload() {
++    HTTPUpload& up = server.upload();
++    if (up.status == UPLOAD_FILE_START) {
++        s_frameOk = false; s_frameCarry = -1; s_frameErr = nullptr; s_frameSeen = true;
++        if (!checkAuth())        { s_frameErr = "unauthorized"; return; }
++        if (!pixelOnScreen())    { s_frameErr = "pixel channel not on screen"; return; }
++        int sx, sy, sw, sh; pixelSceneRect(sx, sy, sw, sh);
++        int x = server.arg("x").toInt(), y = server.arg("y").toInt();
++        int w = server.hasArg("w") ? server.arg("w").toInt() : sw;
++        int h = server.hasArg("h") ? server.arg("h").toInt() : sh;
++        // compare without adding: huge w/h must not overflow past the check
++        if (x < 0 || y < 0 || w <= 0 || h <= 0 || w > sw || h > sh || x > sw - w || y > sh - h) {
++            s_frameErr = "window outside scene"; return;
++        }
++        s_frameLeft = (uint32_t)w * h * 2;
++        s_frameSwap = tft.getSwapBytes();
++        tft.setSwapBytes(false);             // bytes go to the panel as sent
++        tft.setAddrWindow(sx + x, sy + y, w, h);
++        s_frameOk = true;
++    } else if (up.status == UPLOAD_FILE_WRITE) {
++        if (!s_frameOk || s_frameLeft == 0) return;
++        uint8_t* p = up.buf;
++        size_t   n = up.currentSize;
++        if (s_frameCarry >= 0 && n) {        // finish a pixel split across chunks
++            uint8_t px[2] = { (uint8_t)s_frameCarry, p[0] };
++            tft.pushColors(px, 2);
++            s_frameLeft -= 2; s_frameCarry = -1; p++; n--;
++        }
++        if (n > s_frameLeft) n = s_frameLeft;
++        size_t even = n & ~(size_t)1;
++        if (even) { tft.pushColors(p, even); s_frameLeft -= even; }
++        if (n & 1) s_frameCarry = p[n - 1];
++    } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
++        if (s_frameOk) {
++            tft.setSwapBytes(s_frameSwap);
++            if (up.status == UPLOAD_FILE_END && s_frameLeft == 0) pixelFrameDone();
++            else if (!s_frameErr) s_frameErr = up.status == UPLOAD_FILE_END ? "short frame" : "aborted";
++        }
++        s_frameOk = false;
++    }
++}
++
++static void frameDone() {
++    if (!s_frameSeen) s_frameErr = "missing frame";
++    s_frameSeen = false;
++    if (s_frameErr) {
++        int code = !strcmp(s_frameErr, "unauthorized") ? 401
++                 : !strcmp(s_frameErr, "pixel channel not on screen") ? 409 : 400;
++        server.send(code, "application/json", String("{\"error\":\"") + s_frameErr + "\"}");
++        return;
++    }
++    char out[64];
++    snprintf(out, sizeof(out), "{\"ok\":true,\"seq\":%lu}", (unsigned long)pixelSeq());
++    server.send(200, "application/json", out);
++}
++
+ // ── Public API ──────────────────────────────────────────────────────────────
+ 
+ void Web::begin(Settings& settings) {
+@@ -649,7 +758,8 @@ void Web::begin(Settings& settings) {
+         server.send(200, "application/json", "{\"ok\":true}");
+     });
+ 
+-    // Manual channel switching: {"name":"Claude"} or {"action":"next"}
++    // Manual channel switching: {"name":"Claude"} or {"action":"next"}; optional "hold_s" (<=120)
++    // keeps the channel on screen that long before auto-rotate resumes
+     server.on("/api/channel",        HTTP_POST, []() {
+         if (!checkAuth()) { server.send(401, "application/json", "{\"error\":\"unauthorized\"}"); return; }
+         JsonDocument d;
+@@ -662,6 +772,7 @@ void Web::begin(Settings& settings) {
+             server.send(404, "application/json", "{\"error\":\"no enabled channel with that name\"}");
+             return;
+         }
++        if (d["hold_s"].is<int>()) mainHoldChannel((uint32_t)max(0, d["hold_s"].as<int>()));
+         String out = String("{\"ok\":true,\"active\":\"") + mainActiveChannelName() + "\"}";
+         server.send(200, "application/json", out);
+     });
+@@ -672,6 +783,9 @@ void Web::begin(Settings& settings) {
+     server.on("/push/clear",         HTTP_POST, handlePushClear);
+     server.on("/hook",               HTTP_POST, handleHook);
+     server.on("/mcp",                HTTP_POST, handleMcp);
++    server.on("/pixel",              HTTP_GET,  handlePixelState);
++    server.on("/pixel",              HTTP_POST, handlePixelSet);
++    server.on("/frame",              HTTP_POST, frameDone, frameUpload);
+ 
+     // Backwards-compat status (used by some scripts)
+     server.on("/status",             HTTP_GET,  handleApiState);
+diff --git a/src/main.cpp b/src/main.cpp
+index 8f8179d..1e51c66 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -35,6 +35,7 @@
+ extern bool chClaudeEnabled(const ChannelCtx&);  extern void chClaudeDraw(const ChannelCtx&);
+ extern bool chCodexEnabled (const ChannelCtx&);  extern void chCodexDraw (const ChannelCtx&);
+ extern bool chClockEnabled (const ChannelCtx&);  extern void chClockDraw (const ChannelCtx&);
++extern bool chPixelEnabled (const ChannelCtx&);  extern void chPixelDraw (const ChannelCtx&);
+ extern bool chInfoEnabled  (const ChannelCtx&);  extern void chInfoDraw  (const ChannelCtx&);
+ extern bool chWeatherEnabled (const ChannelCtx&); extern void chWeatherDraw (const ChannelCtx&);
+ extern bool chAttentionEnabled(const ChannelCtx&); extern void chAttentionDraw(const ChannelCtx&);
+@@ -48,6 +49,7 @@ extern bool chSetupEnabled   (const ChannelCtx&); extern void chSetupDraw   (con
+ extern void chAttentionTick  (const ChannelCtx&);
+ extern void chAgentsTick     (const ChannelCtx&);
+ extern void chClockTick      (const ChannelCtx&);
++extern void chPixelTick      (const ChannelCtx&);
+ extern void chHomeTick       (const ChannelCtx&);
+ extern void chClaudeTick     (const ChannelCtx&);
+ extern void chCodexTick      (const ChannelCtx&);
+@@ -63,6 +65,7 @@ static const Channel kChannels[] = {
+     { "Attention",chAttentionEnabled,chAttentionDraw,chAttentionTick},
+     { "Night",    chNightEnabled,    chNightDraw,    chNightTick    },
+     { "Setup",    chSetupEnabled,    chSetupDraw,    nullptr        },
++    { "Pixel",    chPixelEnabled,    chPixelDraw,    chPixelTick    },
+     { "Home",     chHomeEnabled,     chHomeDraw,     chHomeTick     },
+     { "Agents",   chAgentsEnabled,   chAgentsDraw,   chAgentsTick   },
+     { "Claude",   chClaudeEnabled,   chClaudeDraw,   chClaudeTick   },
+@@ -89,6 +92,7 @@ static int         g_activePtr   = 0;     // which active channel is on screen
+ 
+ static uint32_t    g_lastRefresh = 0;     // millis of the last completed fetch job
+ static uint32_t    g_lastSlide   = 0;
++static uint32_t    g_holdUntil   = 0;   // /api/channel hold_s: no auto-rotate until then
+ static bool        g_nightFace   = false; // night window + mode clock/dark
+ 
+ // ── Fetch scheduler state ────────────────────────────────────────────────────
+@@ -158,7 +162,8 @@ static void recomputeActive() {
+     g_activeCount = 0;
+     for (int i = 0; i < kChannelCount; i++) {
+         // The night face replaces rotation: only it (and an alert card) runs.
+-        if (g_nightFace && strcmp(kChannels[i].name, "Night") && strcmp(kChannels[i].name, "Attention"))
++        if (g_nightFace && strcmp(kChannels[i].name, "Night") && strcmp(kChannels[i].name, "Attention")
++            && strcmp(kChannels[i].name, "Pixel"))
+             continue;
+         if (kChannels[i].enabled(ctx)) g_activeIdx[g_activeCount++] = i;
+     }
+@@ -225,6 +230,12 @@ static void drawIndicator(uint32_t now) {
+     if (w > 0) tft.fillRect(0, INDICATOR_Y, w, INDICATOR_H, Theme::channelColor(name));
+ }
+ 
++// Keep the current channel on screen for a while (e.g. the coinquilino talking).
++void mainHoldChannel(uint32_t sec) {
++    if (sec > 120) sec = 120;
++    g_holdUntil = millis() + sec * 1000UL;
++}
++
+ // Manual switching (web /api/channel, MCP).
+ bool mainShowChannel(const char* name) {
+     recomputeActive();
+@@ -679,7 +690,8 @@ void loop() {
+     uint32_t slideMs = (uint32_t)g_settings.channelSec * 1000UL;
+     const bool holding = attention && g_activeCount
+                       && !strcmp(kChannels[g_activeIdx[g_activePtr]].name, "Attention");
+-    if (!g_apMode && g_settings.autoRotate && !g_nightFace && !holding && g_activeCount > 1
++    const bool held = (int32_t)(g_holdUntil - now) > 0;
++    if (!g_apMode && g_settings.autoRotate && !g_nightFace && !holding && !held && g_activeCount > 1
+         && now - g_lastSlide >= slideMs) {
+         g_lastSlide = now;
+         // Pick up any settings toggles before deciding what's next.

@@ -1,0 +1,36 @@
+blueprint:
+  name: "Coinquilino: aggiornamenti di Home Assistant"
+  description: >-
+    Una volta al giorno, se ci sono aggiornamenti da installare, il coinquilino lo dice a chi è in
+    casa (la stessa lista una volta a settimana).
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/aggiornamenti.yaml
+  input:
+    at:
+      name: A che ora
+      default: "18:00:00"
+      selector:
+        time: {}
+
+triggers:
+  - trigger: time
+    at: !input at
+
+variables:
+  nomi: >-
+    {{ states.update | selectattr('state', 'eq', 'on') | map(attribute='name') | list }}
+
+conditions:
+  - "{{ nomi | count > 0 }}"
+
+actions:
+  - event: coinquilino_say
+    event_data:
+      text: >-
+        {% if nomi | count == 1 %}In Home Assistant c'è un aggiornamento da installare: {{ nomi[0] }}.{%
+        else %}In Home Assistant ci sono {{ nomi | count }} aggiornamenti da installare: {{ nomi[:3] |
+        join(', ') }}.{% endif %}
+      away: skip
+      key: "aggiornamenti {{ nomi | join(',') }}"
+      repeat_hours: 168
+mode: single

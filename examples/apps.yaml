@@ -1,0 +1,17 @@
+# Da copiare in apps/apps.yaml di AppDaemon (o in un qualunque file .yaml dentro apps/).
+# Un'istanza per cubo. Le impostazioni comuni stanno in coinquilino_personale.yaml;
+# quelle scritte qui vincono, quindi qui va solo cio' che cambia da un cubo all'altro.
+
+coinquilino:
+  module: coinquilino
+  class: Coinquilino
+  # host: 192.168.1.50                 # con un solo cubo puo' stare nel file personale
+
+# Un secondo cubo, per esempio in cucina, con la moto e la sua chat:
+# cucina:
+#   module: coinquilino
+#   class: Coinquilino
+#   host: 192.168.1.51
+#   character: bandit
+#   chat_entity: input_text.parla_con_bandit
+#   voice_player: media_player.cucina

@@ -1,0 +1,35 @@
+blueprint:
+  name: "Coinquilino: pacchi (17TRACK)"
+  description: >-
+    Quando un contatore di 17TRACK sale (per esempio i pacchi consegnati o da ritirare), il
+    coinquilino lo dice; a casa vuota sul telefono.
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/pacchi.yaml
+  input:
+    counter:
+      name: Sensore di 17TRACK
+      selector:
+        entity:
+          domain: sensor
+          integration: seventeentrack
+    phrase:
+      name: Cosa dire
+      default: È arrivato un pacco.
+      selector:
+        text: {}
+
+triggers:
+  - trigger: state
+    entity_id: !input counter
+
+conditions:
+  - "{{ trigger.from_state.state | is_number and trigger.to_state.state | is_number }}"
+  - "{{ trigger.to_state.state | int > trigger.from_state.state | int }}"
+
+actions:
+  - event: coinquilino_say
+    event_data:
+      text: !input phrase
+      away: notify
+      night: defer
+mode: queued

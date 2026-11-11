@@ -1,0 +1,77 @@
+blueprint:
+  name: "Coinquilino: luci accese a casa vuota"
+  description: >-
+    Quando in casa non c'è nessuno da qualche minuto e ci sono luci accese, le spegne (se vuoi) e
+    lo fa sapere sul telefono tramite il coinquilino. Controlla davvero quali si sono spente.
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/luci_casa_vuota.yaml
+  input:
+    zone:
+      name: Zona di casa
+      default: zone.home
+      selector:
+        entity:
+          domain: zone
+    minutes:
+      name: Minuti di casa vuota
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: min
+    turn_off:
+      name: Spegnile
+      description: Spento = solo l'avviso.
+      default: true
+      selector:
+        boolean: {}
+    keep:
+      name: Luci da non toccare
+      default: []
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input zone
+    below: 1
+    for:
+      minutes: !input minutes
+
+variables:
+  keep: !input keep
+  turn_off: !input turn_off
+  accese: >-
+    {{ states.light | selectattr('state', 'eq', 'on') | map(attribute='entity_id')
+       | reject('in', keep) | list }}
+
+conditions:
+  - "{{ accese | count > 0 }}"
+
+actions:
+  - if: "{{ turn_off }}"
+    then:
+      - action: light.turn_off
+        target:
+          entity_id: "{{ accese }}"
+      - delay:
+          seconds: 10
+  - variables:
+      rimaste: "{{ accese | select('is_state', 'on') | list }}"
+      spente: "{{ accese | reject('in', rimaste) | list }}"
+      nomi_spente: "{{ spente | map('state_attr', 'friendly_name') | join(', ') }}"
+      nomi_rimaste: "{{ rimaste | map('state_attr', 'friendly_name') | join(', ') }}"
+  - event: coinquilino_say
+    event_data:
+      text: >-
+        {% if not turn_off %}Casa vuota ma sono rimaste accese: {{ nomi_rimaste }}.{% else %}{% if spente
+        %}Non c'era nessuno: ho spento {{ nomi_spente }}.{% endif %}{% if rimaste %} Non sono riuscito a
+        spegnere {{ nomi_rimaste }}.{% endif %}{% endif %}
+      away: notify
+      night: defer
+      key: luci_casa_vuota
+      repeat_hours: 1
+mode: single
