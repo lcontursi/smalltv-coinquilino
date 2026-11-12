@@ -107,4 +107,4 @@ def test_discarded_ideas_go_into_next_prompt(make_app, cube):
 def test_version():
     import re
     pyproject = open(os.path.join(os.path.dirname(__file__), "..", "pyproject.toml"), encoding="utf-8").read()
-    assert coinquilino.VERSION == "3.0.4" == re.search(r'^version = "(.+)"', pyproject, re.M).group(1)
+    assert coinquilino.VERSION == "3.0.5" == re.search(r'^version = "(.+)"', pyproject, re.M).group(1)

@@ -68,7 +68,7 @@ Quando salvi il file l'app se ne accorge e riparte entro 20 secondi.
 AppDaemon carica l'app da solo. Nel log dell'add-on cerca:
 
 ```
-coinquilino 3.0.4 pronto (alessio): cubo 192.168.1.50, persone [...], battute da Claude SI (...)
+coinquilino 3.0.5 pronto (alessio): cubo 192.168.1.50, persone [...], battute da Claude SI (...)
 ```
 
 e gli avvisi subito dopo (cubo non raggiungibile, token mancante). Vedi

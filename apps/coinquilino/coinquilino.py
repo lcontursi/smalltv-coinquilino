@@ -61,7 +61,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.0.4"
+VERSION = "3.0.5"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -4154,14 +4154,12 @@ class Coinquilino(hass.Hass):
 
     def _bubble_life(self, m):
         """Quanto resta la nuvoletta. Lavagnette e schermate: show_minutes (almeno card_seconds), finche'
-        non arriva altro: 40 secondi non si vedevano (11/11). Su piu' pagine: due giri e mezzo
-        minuto (il diario girava per 20 minuti e sembrava bloccato, 10/11). Una frase corta:
-        show_minutes."""
+        non arriva altro: 40 secondi non si vedevano (11/11). Frasi corte e lunghe: show_minutes; le
+        pagine continuano a girare (la bocca si muove solo nei primi due giri). Non e' una TV: chi
+        passa dopo deve poter leggere tutto (12/11, prima una frase lunga spariva dopo un minuto)."""
         if m.get("card") is not None or m.get("screen") is not None:
             return max(self.card_secs, self.show_minutes * 60)
-        if len(m["pages"]) > 1:
-            return len(m["pages"]) * PAGE_SECS * 2 + 30
-        return self.show_minutes * 60
+        return max(self.show_minutes * 60, len(m["pages"]) * PAGE_SECS * 2 + 30)
 
     def _bubble(self):
         """Pagina da mostrare adesso, se la moto sta parlando o ha parlato da poco."""

@@ -10,9 +10,9 @@ di glimmer. Ecco cosa vedi.
 Ogni frase compare in una nuvoletta, divisa in pagine che girano ogni 4,5 secondi; mentre "parla",
 il personaggio muove la bocca.
 
-- Una **frase corta** resta `show_minutes` (20) o finché non arriva altro.
-- Un **testo lungo** (il diario, una risposta lunga) gira due volte e poi sparisce, così non sembra
-  bloccato.
+- Una frase resta `show_minutes` (20) o finché non arriva altro. Un **testo lungo** (il diario,
+  una risposta lunga) continua a girare le pagine per tutto quel tempo — la bocca si muove solo nei
+  primi due giri — così chi passa dopo lo legge tutto.
 - Di notte le frasi spariscono dopo due minuti, tranne le risposte a te.
 
 ## La lavagnetta

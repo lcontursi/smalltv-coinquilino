@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.5
+
+- A sentence that takes more than one page now stays on the cube for `show_minutes`, like a short one,
+  with its pages turning (the mouth moves only on the first two rounds): before, it disappeared after
+  about a minute and left the plain face until the next thing to say.
+
 ## 3.0.4
 
 - Commands with a pronoun ("spegnila", "alzala") refer to the last device named or the last command:

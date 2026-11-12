@@ -10,8 +10,9 @@ channel. What you see:
 Each line appears in a bubble, split into pages that turn every 4.5 seconds; the character's mouth
 moves while it "talks".
 
-- A **short line** stays `show_minutes` (20) or until something else comes.
-- A **long text** (the diary, a long answer) turns twice and then goes, so it doesn't look stuck.
+- A line stays `show_minutes` (20) or until something else comes. A **long text** (the diary, a
+  long answer) keeps turning its pages for all that time — the mouth moves only on the first two
+  rounds — so whoever walks by later can still read it all.
 - At night lines go away after two minutes, except answers to you.
 
 ## The blackboard

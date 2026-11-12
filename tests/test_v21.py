@@ -193,7 +193,7 @@ def test_bubble_does_not_hang_on_long_texts_or_cards(make_app, cube):
     app = make_app(dict(DAY, host=cube.host, show_minutes=20, card_seconds=40))
     long = app.char.wrap("Caro diario, " + "oggi è stata una giornata lunga e piena di cose. " * 6, app.font_path)
     assert len(long) > 1
-    app.msg = {"pages": long, "t0": time.time() - (len(long) * coinquilino.PAGE_SECS * 2 + 31), "kind": "filler"}
+    app.msg = {"pages": long, "t0": time.time() - 21 * 60, "kind": "filler"}
     assert app._bubble()[0] == "" and app.msg is None
     app.msg = {"pages": ["Ciao."], "t0": time.time() - 21 * 60, "kind": "filler", "card": object()}
     assert app._bubble()[0] == ""

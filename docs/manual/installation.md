@@ -67,7 +67,7 @@ the file the app notices and restarts within 20 seconds.
 AppDaemon loads the app by itself. In the add-on log look for:
 
 ```
-coinquilino 3.0.4 pronto (alessio): cubo 192.168.1.50, persone [...], battute da Claude SI (...)
+coinquilino 3.0.5 pronto (alessio): cubo 192.168.1.50, persone [...], battute da Claude SI (...)
 ```
 
 and for warnings right after it (an unreachable cube, a missing token). See
