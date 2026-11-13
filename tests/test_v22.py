@@ -145,7 +145,7 @@ def test_blueprints_load_and_use_known_fields():
              "repeat_hours", "remember", "quiet_seconds", "expect_arrival", "cube", "instance"}
     root = os.path.join(os.path.dirname(__file__), "..", "blueprints")
     files = glob.glob(os.path.join(root, "*", "coinquilino", "*.yaml"))
-    assert len(files) == 8
+    assert len(files) == 9
 
     def events(x):
         if isinstance(x, dict):

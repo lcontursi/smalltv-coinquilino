@@ -31,6 +31,7 @@ Protocollo col cubo (firmware glimmer + patch "Pixel"):
   POST http://<cubo>/frame?x=&y=&w=&h=    multipart "frame", RGB565 big-endian
   POST http://<cubo>/api/channel          {"name":"Pixel", "hold_s": N}
 """
+import io
 import json
 import math
 import os
@@ -61,13 +62,14 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.0.5"
+VERSION = "3.1.0"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
 UA = f"coinquilino-smalltv/{VERSION} (Home Assistant AppDaemon)"
 MAX_PAGE = 2_000_000          # byte massimi letti da una pagina o da un feed
 API_URL = "https://api.anthropic.com/v1/messages"
+WIKI_SUMMARY = "https://it.wikipedia.org/api/rest_v1/page/summary/"   # 3.1 (CT): foto delle curiosita'
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 RAINY = {"rainy", "pouring", "lightning-rainy", "snowy-rainy", "hail"}
@@ -186,15 +188,12 @@ KIND_HINT = {
     "say": "Di' questa cosa con la tua voce.",
     "festa": "Oggi è {nome}. Festeggia, senza esagerare: se è un compleanno fai gli auguri "
              "a chi lo compie (se è il tuo, festeggia te stesso!).",
-    "regista": "Fai compagnia a {owner}. Qui sotto c'è tutto quello che sai del mondo di "
-               "oggi: scegli UNA cosa da dire, la più utile o interessante per {owner} "
-               "adesso (un cambio del tempo, una differenza rispetto a ieri, una cosa della "
-               "casa che sta cambiando, una notizia spiegata bene, un promemoria, una "
-               "curiosità vera). Meglio un dato concreto che un pensiero generico. Non "
-               "ripetere cose che hai già detto di recente né gli argomenti già detti oggi. "
-               "I fatti di oggi già passati non sono novità. Non annunciare che stai per "
-               "dire una cosa utile e non riprendere le frasi di prima. Non parlare di luci o "
-               "elettrodomestici.",
+    "regista": "Fai compagnia a {owner} con la tua personalità di ragazzino curioso: non sei "
+               "un bollettino. Non cominciare la frase con il nome di {owner}. Non ripetere cose "
+               "che hai già detto di recente né gli argomenti già detti oggi. I fatti di oggi già "
+               "passati non sono novità. Non annunciare che stai per dire una cosa (niente 'la "
+               "notizia più utile', 'la cosa curiosa di oggi') e non riprendere le frasi di prima. "
+               "Non dire l'ora di adesso. Non parlare di luci o elettrodomestici.",
     "diario": "È sera: scrivi il tuo diario di oggi, come un ragazzino sveglio, partendo da 'Caro "
               "diario'. Massimo 3 frasi brevi e 280 caratteri in tutto, usando solo i fatti "
               "di oggi qui sotto.",
@@ -205,6 +204,54 @@ KIND_HINT = {
               "a volte una domanda a {owner}. Se dici una curiosità, deve essere vera: "
               "se non sei sicuro, scegli altro. Argomento di oggi: {topic}.",
 }
+
+# 3.1 (CQ): la frase contiene il ragionamento o una correzione di Claude
+RIPENSAMENTO = (r"\bno,? aspetta\b|\banzi,? no\b|\bnon ripeto\b|\bripeto la formula\b|"
+                r"\bmi correggo\b|\.\.\.\s*no\b")
+# 3.1 (CU): niente nome di chi ascolta in apertura (28 frasi su 28 il 12/11 cominciavano cosi')
+NO_NAME_KINDS = {"regista", "random", "chat", "idee"}
+# 3.1 (CU): le formule con cui presentava le notizie
+FORMULE_NOTIZIA = re.compile(r"^(la notizia|la cosa) (più|piu') (utile|curiosa|interessante)"
+                             r"( da (leggere|sapere))?( (per )?oggi)?( è| e')?\s*:\s*", re.I)
+
+# 3.1 (CU): il regista non sceglie piu' da solo tra tutto (sceglieva sempre meteo e moto, 12/11):
+# ogni turno ha un argomento sorteggiato, con un peso e un tetto al giorno, e riceve solo i dati
+# di quell'argomento. Le curiosita' (con una foto, CT) sono l'argomento piu' frequente.
+ARGOMENTI = {"curiosita": (5, 99), "notizia": (2, 3), "meteo": (2, 2), "casa": (1, 2),
+             "ricordo": (1, 1), "domanda": (1, 1), "aerei": (1, 1)}
+ARGOMENTO_HINT = {
+    "curiosita": "Argomento di questo turno: una curiosità che hai scoperto su {tema}. Racconta un "
+                 "fatto preciso e sorprendente, come lo racconterebbe un ragazzino di 10 anni a cui "
+                 "piace: non un pensiero generico. Deve essere vero e noto: se non sei sicuro, "
+                 "scegline un altro dello stesso tema. Dopo la frase scrivi <foto>il titolo esatto "
+                 "della voce di Wikipedia in italiano sulla cosa di cui parli</foto>.",
+    "notizia": "Argomento di questo turno: una delle notizie nei dati, solo se è davvero "
+               "interessante o curiosa per {owner}; raccontala in modo semplice e preciso. Se "
+               "nessuna merita, scrivi solo <frase>SALTA</frase>.",
+    "meteo": "Argomento di questo turno: il tempo. Parlane solo se c'è un cambio vero (pioggia "
+             "che arriva o che finisce, freddo, caldo) e dai un consiglio pratico solo se serve. "
+             "Se non cambia niente di importante, scrivi solo <frase>SALTA</frase>.",
+    "casa": "Argomento di questo turno: la casa e la giornata della famiglia (chi c'è, l'agenda, "
+            "un promemoria, le temperature delle stanze), solo una cosa utile adesso. Se non c'è "
+            "niente di utile, scrivi solo <frase>SALTA</frase>.",
+    "ricordo": "Argomento di questo turno: una cosa della tua memoria a lungo termine, se adesso "
+               "è utile o affettuosa. Una sola, e non una di cui hai già parlato oggi.",
+    "domanda": "Argomento di questo turno: fai una domanda breve a {owner}, curiosa o simpatica, "
+               "su {tema}.",
+    "aerei": "Argomento di questo turno: l'aereo che passa vicino adesso, in breve.",
+}
+# Le cose che incuriosiscono un ragazzino di 10 anni (le curiosita' e le domande del regista):
+# volutamente lontane da casa, meteo e moto
+CURIOSITA = ["gli animali più strani", "lo spazio e i pianeti", "i dinosauri", "le invenzioni",
+             "i record del mondo", "il corpo umano", "gli abissi dell'oceano", "i vulcani",
+             "gli insetti", "i treni", "i castelli e i cavalieri", "gli antichi egizi",
+             "i robot", "i colori e la luce", "gli strumenti musicali", "le Olimpiadi",
+             "i posti più strani del mondo", "le piante carnivore", "gli esploratori",
+             "i ponti e i grattacieli", "i cibi di altri paesi", "i fossili", "le grotte",
+             "gli uccelli", "i poli e i ghiacciai", "i giochi di una volta", "le parole strane",
+             "i numeri curiosi", "i Romani", "le navi e i sottomarini", "gli squali",
+             "il cervello", "le api e le formiche", "le stelle", "i deserti", "le isole",
+             "gli scienziati famosi", "i musei", "i fumetti e i cartoni", "i pianeti nani"]
 
 URGENT = {"arrive", "leave", "rain_soon", "wind", "plane", "diario", "festa", "morning",
           "action"}
@@ -425,6 +472,10 @@ class Coinquilino(hass.Hass):
         self.filler_last = {}               # chiacchiera -> (quando, testo)
         self.chatter_day = dict(CHATTER_DAY)
         self.chatter_day.update({KIND_OF.get(k, k): int(v) for k, v in (a.get("chatter_day_max") or {}).items()})
+        # 3.1 (CU): tetti al giorno degli argomenti del regista e temi delle sue curiosita'
+        self.argomenti_day = {str(k): int(v) for k, v in (a.get("director_topics_max") or {}).items()
+                              if str(k) in ARGOMENTI}
+        self.curiosita = [str(x) for x in (a.get("curiosities") or [])] or list(CURIOSITA)
         self.started = time.time()
         self.max_per_hour = int(a.get("max_per_hour", 4))
         self.show_minutes = float(a.get("show_minutes", 20))
@@ -509,6 +560,8 @@ class Coinquilino(hass.Hass):
         self._last_why = None                  # perche' le chiacchiere sono in pausa (log una volta)
         self._temps_said = None                # (quando, fuori, dentro) dell'ultima volta che le ha dette
         self._news_offered = []                # notizie proposte al regista nell'ultima chiamata
+        self._curio_cards = {}                 # 3.1 (CT): foto delle curiosita' per la vetrina
+        self._director_card = None
         self._rooms_at = 0.0                   # ultimo campione delle temperature delle stanze
         self._extra_warned = 0.0
         self._channel_warned = 0.0
@@ -686,6 +739,7 @@ class Coinquilino(hass.Hass):
         # la mente: ricordi lunghi, carattere, eta', promemoria, galleria dei disegni
         self.mem.setdefault("nascita", date.today().isoformat())
         self.ricordi = mente.Ricordi(self.mem.get("ricordi"))
+        self.ricordi.scadi()
         self.carattere = mente.Carattere(self.mem.get("carattere"))
         self.mem.setdefault("promemoria", [])
         self.mem.setdefault("galleria", [])
@@ -828,12 +882,14 @@ class Coinquilino(hass.Hass):
                             "Parli come un bimbo: frasi semplici e qualche espressione buffa.")
         return (text + (" " + self.family if self.family else "")).replace("  ", " ")
 
-    def persona_now(self):
-        """Persona + carattere + ricordi: quello che Claude deve sapere di se' a ogni chiamata."""
+    def persona_now(self, ricordi=True):
+        """Persona + carattere + ricordi: quello che Claude deve sapere di se' a ogni chiamata.
+        3.1 (CU): il regista riceve i ricordi solo quando l'argomento li chiede (la moto rotta da
+        riparare tornava tre volte al giorno, 12/11)."""
         parts = [self.persona]
         if hasattr(self, "carattere"):
             parts.append(self.carattere.prompt())
-        if hasattr(self, "ricordi") and self.ricordi.items:
+        if ricordi and hasattr(self, "ricordi") and self.ricordi.items:
             parts.append(self.ricordi.prompt())
         return "\n".join(parts)
 
@@ -1357,14 +1413,14 @@ class Coinquilino(hass.Hass):
         day["eventi"] = day["eventi"][-80:]
         self._mem_save()
 
-    def _ricordi(self):
+    def _ricordi(self, fatti=True):
         g = self.mem["giorni"]
         today = date.today().isoformat()
         ieri = (date.today() - timedelta(days=1)).isoformat()
         out = []
-        if g.get(ieri, {}).get("diario"):
+        if fatti and g.get(ieri, {}).get("diario"):
             out.append(f"Il tuo diario di ieri: {g[ieri]['diario']}")
-        ev = g.get(today, {}).get("eventi", [])
+        ev = g.get(today, {}).get("eventi", []) if fatti else []
         if ev:
             out.append("Fatti di oggi, già passati (non presentarli come novità): " + "; ".join(ev[-12:]))
         if self.said_recent:
@@ -2461,6 +2517,9 @@ class Coinquilino(hass.Hass):
             res = None
             if x["tipo"] == "testo":
                 res = x["testo"]
+            elif x["tipo"] == "curiosita":
+                img = self._curio_cards.get(x.get("id"))
+                res = (x["testo"], img) if img is not None else x["testo"]
             elif x["tipo"] == "disegno" and self.cards_on and hasattr(self.char, "render_card"):
                 res = f"Il disegno di oggi: {x['titolo']}", grafici.pixel_art(x["righe"])
             elif x["tipo"] == "chiacchiera":
@@ -2933,6 +2992,8 @@ class Coinquilino(hass.Hass):
                     text, self._why_not = None, f"Claude non risponde ({e})"
             else:
                 text, cost = self._write(fact)
+                if fact["kind"] == "regista" and text and getattr(self, "_director_card", None) is not None:
+                    card, self._director_card = self._director_card, None    # CT: la foto della curiosita'
             if not text:
                 self._L("SKIP", self._cost(fact["kind"]), self._group(fact["kind"]),
                         TOPIC.get(fact["kind"], fact["kind"]), self._why_not or "niente da dire")
@@ -2951,7 +3012,15 @@ class Coinquilino(hass.Hass):
             self.spoken.append(time.time())
             self.last_said = time.time()          # solo gli avvisi in coda contano per l'attesa
             self._say_now(text, fact["kind"], card, cost)
-            if fact["kind"] == "regista" and cost == "paid" and card is None and self._showcase_ok(text):
+            if fact["kind"] == "regista" and cost == "paid" and card is not None:
+                # CT: la curiosita' con la foto torna in vetrina (la foto resta in memoria, non su disco)
+                fid = f"c{int(time.time())}"
+                self._curio_cards[fid] = card
+                for old in list(self._curio_cards)[:-8]:
+                    self._curio_cards.pop(old, None)
+                self._vetrina_add({"tipo": "curiosita", "testo": text, "id": fid,
+                                   "scade": time.time() + 12 * 3600})
+            elif fact["kind"] == "regista" and cost == "paid" and self._showcase_ok(text):
                 self._vetrina_add({"tipo": "testo", "testo": text, "scade": time.time() + 3 * 3600})
         finally:
             self.say_lock.release()
@@ -3205,8 +3274,12 @@ class Coinquilino(hass.Hass):
         except KeyError:
             return None, cost
 
-    def _context(self, full=False, chat_text=""):
-        """Cosa sa Alessio del mondo adesso (per le richieste a Claude)."""
+    def _context(self, full=False, chat_text="", topic=None):
+        """Cosa sa Alessio del mondo adesso (per le richieste a Claude). Con topic (il regista,
+        3.1) solo i dati di quell'argomento: col meteo sempre davanti parlava solo di meteo."""
+
+        def on(*t):
+            return topic is None or topic in t
         now = datetime.now()
         giorni = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
         mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio",
@@ -3233,7 +3306,7 @@ class Coinquilino(hass.Hass):
             out.append(f"L'ultima cosa che hai detto: «{self.said_recent[-1]}»")
         # 2.1 (BT): le temperature solo se chieste o cambiate; prima le citava in ogni frase
         asked_t = bool(re.search(r"grad|temperat|caldo|freddo|meteo|tempo fa|piov", chat_text or "", re.I))
-        if asked_t or self._temps_fresh():
+        if on("meteo", "casa") and (asked_t or self._temps_fresh()):
             cond, temp = self._weather_now()
             if temp is not None:
                 out.append(f"Meteo a {self.city} adesso: {cond}, {temp:.0f} gradi.")
@@ -3244,11 +3317,12 @@ class Coinquilino(hass.Hass):
         if temi:
             out.append("Argomenti già detti oggi (non ripeterli se non te lo chiedono): "
                        + ", ".join(f"{k} ({v})" for k, v in temi.items()) + ".")
-        out += self._agenda_ctx()
+        if on("casa"):
+            out += self._agenda_ctx()
         if not full:
             return out
         gg, i = self._giorni()
-        if gg and gg[i]["tmax"] is not None:
+        if on("meteo") and gg and gg[i]["tmax"] is not None:
             dom = gg[i + 1] if i + 1 < len(gg) and gg[i + 1]["tmax"] is not None else None
             out.append(f"Previsioni: oggi {gg[i]['tmin']:.0f}-{gg[i]['tmax']:.0f} gradi pioggia {gg[i]['pioggia']}%"
                        + (f"; domani {dom['tmin']:.0f}-{dom['tmax']:.0f} gradi pioggia {dom['pioggia']}%"
@@ -3256,28 +3330,54 @@ class Coinquilino(hass.Hass):
             cmp_ = [x for x in [meteo.rispetto_a_ieri(gg, i)] + meteo.confronti(gg, i) if x]
             if cmp_:
                 out.append("Come cambia il tempo: " + " ".join(cmp_))
-        fresh = self._news_fresh()[-5:]
+        fresh = self._news_fresh()[-5:] if on("notizia") else []
         self._news_offered = fresh
         if fresh:
             out.append("Notizie recenti non ancora raccontate: "
                        + " | ".join(f"[{i}] {t}" for i, (_, t) in enumerate(fresh, 1)))
-        if self.planes and time.time() - self.planes_at < 600 and self._plane_ok():
+        if on("aerei") and self.planes and time.time() - self.planes_at < 600 and self._plane_ok():
             out.append(f"Il più vicino adesso: {aerei.descrivi(self.planes[0])}, a "
                        f"{self.planes[0]['km']:.0f} km.")
         c = self._claude_session()
-        if c is not None and c >= 50:          # 2.1 (BW): sotto la meta' non e' una notizia
+        if on("casa") and c is not None and c >= 50:          # 2.1 (BW): sotto la meta' non e' una notizia
             out.append(f"Consumo di Claude di {self.owner} (sessione da 5 ore): {c:.0f}%.")
         aperte = [(st.get("attributes") or {}).get("friendly_name") or e
                   for e, st in (self.get_state("binary_sensor") or {}).items()
                   if st.get("state") == "on"
                   and (st.get("attributes") or {}).get("device_class") in ("window", "door", "opening")]
-        if aperte:
+        if aperte and on("casa", "meteo"):
             out.append("Finestre o porte aperte adesso: " + ", ".join(aperte[:6]) + ".")
         home = [self._who(e) for e, st in (self.get_state("person") or {}).items()
                 if st.get("state") == "home" and e in self.nicknames]
-        if home:
+        if home and on("casa", "ricordo", "domanda"):
             out.append("In casa adesso: " + ", ".join(home) + ".")
-        return out + self._ricordi()
+        return out + self._ricordi(fatti=on("casa", "ricordo"))
+
+    def _senza_nome(self, text):
+        """Toglie "Zio Mario," (o il soprannome di chi ascolta) dall'inizio della frase, e le formule
+        con cui presentava le notizie."""
+        nomi = {self.owner} | {v for k, v in self.nicknames.items() if k == self.owner_entity}
+        for n in sorted((x for x in nomi if x), key=len, reverse=True):
+            m = re.match(rf"\s*{re.escape(n)}\s*[,!:.]\s*", text, re.I)
+            if m and len(text) - m.end() > 12:
+                text = text[m.end():]
+                break
+        text = FORMULE_NOTIZIA.sub("", text)
+        return text[:1].upper() + text[1:] if text else text
+
+    @staticmethod
+    def _senza_ora(text, adesso=None):
+        """CS: "oggi alle 17:14 le previsioni..." (l'ora della chiamata) -> "oggi le previsioni...":
+        in vetrina tornava per ore con l'ora vecchia. Restano gli orari lontani da adesso."""
+        now = adesso or datetime.now()
+
+        def via(m):
+            h, mi = int(m.group(2)), int(m.group(3))
+            if h > 23 or mi > 59:
+                return m.group(0)
+            t = now.replace(hour=h, minute=mi, second=0, microsecond=0)
+            return m.group(1) if abs((t - now).total_seconds()) <= 600 else m.group(0)
+        return re.sub(r"(\boggi)?\s*,?\s*alle (\d{1,2})[:.](\d{2})\b,?", lambda m: via(m) or "", text)
 
     def _strip_tics(self, text):
         """Toglie dalla frase i pezzi che sono tormentoni vietati ("Ti voglio tanto bene!",
@@ -3372,21 +3472,26 @@ class Coinquilino(hass.Hass):
         self._mem_save()
         return counts
 
-    def _api(self, system, task, data, kind, max_tokens, stop=None, tools=None, extra=None):
+    def _api(self, system, task, data, kind, max_tokens, stop=None, tools=None, extra=None,
+             ricordi=True):
         """Una chiamata all'API Anthropic. I dati vanno dentro <dati>, ripuliti."""
         n_day, n_hour = self._budget(kind)
         content = "\n".join(task)
         if data:
             content += "\n<dati>\n" + "\n".join(dato(x) for x in data) + "\n</dati>"
         params = {"model": self.model, "max_tokens": max_tokens,
-                  "system": self.persona_now() + DATA_RULE + system,
+                  "system": self.persona_now(ricordi) + DATA_RULE + system,
                   "messages": [{"role": "user", "content": content}] + list(extra or [])}
         if stop:                    # si ferma appena chiuso il tag: niente testo in piu' pagato e buttato
             params["stop_sequences"] = [stop]
         if self.quick_params:       # frasi brevi: niente ragionamento nascosto (token in uscita pagati)
             params.update(QUICK_PARAMS)
         if tools:
+            # 3.1 (CP): strumenti di HA e istruzioni sono uguali in ogni giro della chat con MCP:
+            # in cache costano un decimo (183k token in 22 prove l'11/11)
             params["tools"] = tools
+            params["system"] = [{"type": "text", "text": params["system"],
+                                 "cache_control": {"type": "ephemeral"}}]
         headers = {"x-api-key": self.api_key, "anthropic-version": "2023-06-01",
                    "content-type": "application/json"}
         r = requests.post(API_URL, headers=headers, json=params, timeout=40)
@@ -3420,9 +3525,9 @@ class Coinquilino(hass.Hass):
             self.log(f"Claude ha scritto {len(before)} caratteri prima di {first_tag} ({kind}, "
                      f"{out_tokens} token in uscita): {before[:300]!r}", level="WARNING")
 
-    def _claude(self, task, data, kind, extra_rule=""):
+    def _claude(self, task, data, kind, extra_rule="", ricordi=True, stop="</frase>"):
         """Chiama Claude; ritorna (frase, umore). frase None se la risposta non va bene."""
-        j = self._api(extra_rule or OUTPUT_RULE, task, data, kind, 2500, stop="</frase>")
+        j = self._api(extra_rule or OUTPUT_RULE, task, data, kind, 2500, stop=stop, ricordi=ricordi)
         return self._frase(j, kind)
 
     def _frase(self, j, kind):
@@ -3436,6 +3541,14 @@ class Coinquilino(hass.Hass):
         mood = re.findall(r"<umore>\s*(\w+)\s*</umore>", raw)
         text = clean(found[-1]).strip(' "\'') if found else ""
         text = self._strip_tics(text)
+        if text and re.search(RIPENSAMENTO, text, re.I):
+            # CQ: Claude si corregge dentro la frase ("no, aspetta: le raffiche..."): via tutta
+            self.log(f"risposta di Claude scartata ({kind}): ragionamento nella frase: {text!r}",
+                     level="WARNING")
+            return None, None
+        if kind in NO_NAME_KINDS:
+            text = self._senza_nome(text)
+        text = self._senza_ora(text)
         if text[:1].islower():
             text = text[0].upper() + text[1:]
         limit = MAX_LEN.get(kind, 170)
@@ -3473,7 +3586,14 @@ class Coinquilino(hass.Hass):
         elif kind == "say":
             task.append(f"Cosa dire: {fact.get('about', '')}")   # dal proprietario, via Home Assistant
         full = kind in ("regista", "diario")
-        data += self._context(full=full)
+        topic = tema = None
+        if kind == "regista":
+            topic, tema = self._argomento()
+            task.append(self.T(ARGOMENTO_HINT[topic]).replace("{tema}", tema or ""))
+        if kind == "arrive":
+            task.append("Usa solo i fatti scritti nei dati: non inventare pacchi, corrieri, visite, "
+                        "temperature o piogge che non ci sono.")
+        data += self._context(full=full, topic=topic)
         if kind == "diario":
             ev = self.mem["giorni"].get(date.today().isoformat(), {}).get("eventi", [])
             data.append("Tutti i fatti di oggi: " + "; ".join(ev[-40:]))
@@ -3489,7 +3609,25 @@ class Coinquilino(hass.Hass):
                         "casa (per esempio pioggia in arrivo con una finestra aperta), prima di tutto "
                         "scrivi <avviso>un messaggio breve per il suo telefono</avviso>; altrimenti "
                         "niente avviso. Mai per notizie o curiosita'." + rule)
-        text, mood = self._claude(task, data, kind, rule)
+        self._director_card = None
+        text, mood = self._claude(task, data, kind, rule, ricordi=topic in (None, "ricordo", "casa"),
+                                  stop="</foto>" if topic == "curiosita" else "</frase>")
+        if text and re.match(r"salta\b", text, re.I):
+            self._why_not = f"niente da dire su {topic or kind}"
+            if topic:
+                self._argomento_fatto(topic, tema)     # il turno conta: non si riprova subito
+            return None
+        # le curiosita' hanno i loro numeri (un ghepardo a 100 km/h): il controllo e' per i dati di casa
+        controlla = topic not in ("curiosita", "domanda") and kind in ("regista", "arrive", "leave")
+        if text and controlla and self._numeri_inventati(text, task + data):
+            self.log(f"frase scartata ({kind}): numeri che non sono nei dati: {text!r}", level="WARNING")
+            self._why_not = "numeri non nei dati"
+            return None
+        if text and topic:
+            self._argomento_fatto(topic, tema)
+            if topic == "curiosita":
+                voce = re.findall(r"<foto>(.*?)</foto>", self._last_raw + "</foto>", re.S)
+                self._director_card = self._wiki_foto(clean(voce[-1])) if voce else None
         if text and kind == "regista":
             self._news_picked(self._last_raw)
         if text and kind == "regista" and mood in MOODS and mood != "sleep":
@@ -3500,6 +3638,84 @@ class Coinquilino(hass.Hass):
             self.mem["ultimo_avviso"] = time.time()          # al massimo uno ogni 3 ore
             self._notify(clean(avviso[-1])[:200], kind="regista")
         return text
+
+    # ------------------------------------------------------------------ argomenti del regista (3.1)
+    def _argomenti_oggi(self):
+        today = date.today().isoformat()
+        a = self.mem.setdefault("detto", {}).get("argomenti") or {}
+        if a.get("_data") != today:
+            a = {"_data": today, "temi": a.get("temi", [])[-20:]}
+            self.mem["detto"]["argomenti"] = a
+        return a
+
+    def _argomento(self):
+        """L'argomento di questo turno del regista, sorteggiato tra quelli che hanno ancora posto
+        oggi -> (argomento, tema). Il tema (per curiosita' e domande) non torna tra gli ultimi 20."""
+        a = self._argomenti_oggi()
+        ok = []
+        for k, (peso, tetto) in ARGOMENTI.items():
+            if a.get(k, 0) >= self.argomenti_day.get(k, tetto) or peso <= 0:
+                continue
+            if k == "notizia" and not self._news_fresh():
+                continue
+            if k == "meteo" and not self._giorni()[0]:
+                continue
+            if k == "aerei" and not (self.planes and time.time() - self.planes_at < 600
+                                     and self._plane_ok()):
+                continue
+            if k == "ricordo" and not (hasattr(self, "ricordi") and self.ricordi.items):
+                continue
+            ok.append((k, peso))
+        if not ok:
+            ok = [("curiosita", 1)]
+        k = random.choices([x for x, _ in ok], weights=[w for _, w in ok])[0]
+        tema = None
+        if k in ("curiosita", "domanda"):
+            vietati = set(a.get("temi", [])) | set(getattr(self.carattere, "bloccati", []) if
+                                                   hasattr(self, "carattere") else [])
+            scelta = [t for t in self.curiosita if t not in vietati
+                      and not any(b in t for b in vietati)] or list(self.curiosita)
+            tema = random.choice(scelta)
+        return k, tema
+
+    def _argomento_fatto(self, topic, tema):
+        a = self._argomenti_oggi()
+        a[topic] = a.get(topic, 0) + 1
+        if tema:
+            a["temi"] = (a.get("temi", []) + [tema])[-20:]
+        self.mem["detto"]["argomenti"] = a
+
+    @staticmethod
+    def _numeri_inventati(text, fonti):
+        """CR: gradi, percentuali e km/h detti devono stare nei dati (il 12/11 ha detto 12 gradi
+        con 21 fuori, e un pacco che non c'era)."""
+        nums = re.findall(r"(\d+)\s*(?:gradi|°|%|per cento|km/h)", text.lower())
+        if not nums:
+            return False
+        dati = set(re.findall(r"\d+", " ".join(str(x) for x in fonti)))
+        return any(n not in dati for n in nums)
+
+    def _wiki_foto(self, voce):
+        """CT: la foto della voce di Wikipedia della curiosita' -> lavagnetta, o None."""
+        if not voce or not self.cards_on or not hasattr(self.char, "render_card"):
+            return None
+        try:
+            r = requests.get(WIKI_SUMMARY + requests.utils.quote(voce.replace(" ", "_")),
+                             headers={"User-Agent": "smalltv-coinquilino"}, timeout=10)
+            if r.status_code != 200:
+                self.log(f"foto della curiosità: voce «{voce}» non trovata ({r.status_code})")
+                return None
+            src = ((r.json().get("thumbnail") or {}).get("source")
+                   or (r.json().get("originalimage") or {}).get("source"))
+            if not src:
+                self.log(f"foto della curiosità: la voce «{voce}» non ha foto")
+                return None
+            img = requests.get(src, headers={"User-Agent": "smalltv-coinquilino"}, timeout=15)
+            img.raise_for_status()
+            return foto.quadro(Image.open(io.BytesIO(img.content)), grafici.CARD_W, grafici.CARD_H)
+        except Exception as e:
+            self.log(f"foto della curiosità non disponibile ({voce}): {e}", level="WARNING")
+            return None
 
     def _ask_drawing(self):
         """Disegno in pixel art di Claude -> (titolo, immagine) oppure (None, None)."""
@@ -3890,6 +4106,7 @@ class Coinquilino(hass.Hass):
         if kind == "ricordi":
             items = mente.estrai_json(raw, "ricordi")
             if isinstance(items, list) and self.ricordi.replace(items):
+                self.ricordi.scadi()
                 self._L("SAY", "paid", "timer", "memory.night", f"{len(self.ricordi.items)} ricordi")
             else:
                 self.log(f"ricordi non aggiornati{why}, risposta: {raw[:200]!r}", level="WARNING")

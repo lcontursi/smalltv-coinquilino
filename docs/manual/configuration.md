@@ -76,6 +76,8 @@ The names used for chatter kinds (`chatter_day_max`, `voice_kinds`) are the ones
 | `min_gap_minutes` | 15 | between two queued warnings (urgent ones always pass) |
 | `max_per_hour` | 4 | queued warnings per hour |
 | `chatter_day_max` | built-in | daily cap per chatter kind, e.g. `{news.headline: 8}` |
+| `director_topics_max` | built-in | daily cap per director topic, e.g. `{meteo: 1, curiosita: 0}` (see [The character](character.md#the-director)) |
+| `curiosities` | built-in list | themes for the director's curiosities and questions |
 | `show_minutes` | 20 | how long a line (short or long), a blackboard or a screen stays |
 | `card_seconds` | 40 | minimum time for blackboards and screens |
 | `cards` | true | charts, radar and drawings on the blackboard |

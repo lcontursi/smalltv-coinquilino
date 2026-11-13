@@ -21,6 +21,24 @@ notizie, gli aerei, l'agenda, i fatti di oggi, i ricordi, gli argomenti già det
 frase che vale di più, con un umore. Può anche segnare una notizia come raccontata e, con
 `autonomy`, aggiungere un breve avviso per il telefono (al massimo uno ogni 3 ore).
 
+Dalla 3.1 ogni turno ha un **argomento**, sorteggiato con un peso fra quelli che oggi hanno ancora
+posto:
+
+| Argomento | Peso | Al giorno | Cosa riceve Claude |
+|---|---|---|---|
+| `curiosita` | 5 | senza tetto | un tema che interessa a un ragazzino di 10 anni (`curiosities`), mai uno degli ultimi 20; Claude indica la voce di Wikipedia in italiano e la sua foto va sulla lavagnetta |
+| `notizia` | 2 | 3 | le notizie non ancora raccontate; se nessuna è interessante salta |
+| `meteo` | 2 | 2 | previsioni e confronti; solo un cambio vero, altrimenti salta |
+| `casa` | 1 | 2 | chi c'è, agenda, temperature delle stanze, fatti di oggi, ricordi |
+| `ricordo` | 1 | 1 | la memoria lunga |
+| `domanda` | 1 | 1 | una domanda su un tema |
+| `aerei` | 1 | 1 | l'aereo più vicino (solo se c'è) |
+
+I tetti si cambiano con `director_topics_max` (per esempio `{curiosita: 0}` spegne le curiosità).
+I ricordi lunghi arrivano solo per `ricordo` e `casa`. Le frasi non cominciano mai con il nome di
+chi ascolta; quelle con le correzioni di Claude ("no, aspetta") e quelle con gradi, percentuali o
+km/h che non sono nei dati si scartano; l'ora di adesso si toglie.
+
 Gli argomenti già detti oggi (meteo di domani, aggiornamenti, temperature di adesso, consumo di
 Claude, aerei) si riconoscono dal testo e non si ripetono; le temperature tornano solo se sono
 cambiate di 2 gradi o sono passate 3 ore, oppure se le chiedi.

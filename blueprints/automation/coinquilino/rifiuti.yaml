@@ -1,0 +1,60 @@
+blueprint:
+  name: "Coinquilino: raccolta dei rifiuti"
+  description: >-
+    La sera prima della raccolta il coinquilino dice cosa passa domani, letto da un calendario
+    (per esempio quello di Waste Collection Schedule). A casa vuota solo sul telefono.
+  domain: automation
+  source_url: https://github.com/lcontursi/smalltv-coinquilino/blob/main/blueprints/automation/coinquilino/rifiuti.yaml
+  input:
+    calendar:
+      name: Calendario della raccolta
+      selector:
+        entity:
+          domain: calendar
+    at:
+      name: A che ora
+      default: "20:00:00"
+      selector:
+        time: {}
+    sentence:
+      name: Frase
+      description: "{tipi} diventa quello che passa domani (per esempio: Plastica e Carta)."
+      default: "Domani passa {tipi}: stasera metti fuori i bidoni."
+      selector:
+        text: {}
+
+triggers:
+  - trigger: time
+    at: !input at
+
+variables:
+  sentence: !input sentence
+
+actions:
+  - action: calendar.get_events
+    target:
+      entity_id: !input calendar
+    data:
+      start_date_time: "{{ (today_at() + timedelta(days=1)).isoformat() }}"
+      end_date_time: "{{ (today_at() + timedelta(days=2)).isoformat() }}"
+    response_variable: risposta
+  - variables:
+      tipi: >-
+        {% set ns = namespace(l=[]) %}
+        {% for cal in risposta.values() %}
+          {% for e in cal.events %}
+            {% if e.summary and e.summary not in ns.l %}{% set ns.l = ns.l + [e.summary] %}{% endif %}
+          {% endfor %}
+        {% endfor %}
+        {{ ns.l }}
+  - condition: template
+    value_template: "{{ tipi | count > 0 }}"
+  - event: coinquilino_say
+    event_data:
+      text: >-
+        {% set elenco = tipi[:-1] | join(', ') ~ ' e ' ~ tipi[-1] if tipi | count > 1 else tipi[0] %}
+        {{ sentence | replace('{tipi}', elenco | lower) }}
+      away: notify
+      key: "rifiuti {{ tipi | join(',') }} {{ (now() + timedelta(days=1)).date() }}"
+      repeat_hours: 12
+mode: single

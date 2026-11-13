@@ -20,6 +20,23 @@ agenda, today's events, memories, topics already said today — and writes the o
 saying, with a mood. It can also mark a news item as told, and, with `autonomy`, add a short warning
 for the phone (at most one every 3 hours).
 
+Since 3.1 each turn has a **topic**, drawn with a weight among those that still have room today:
+
+| Topic | Weight | Per day | What Claude receives |
+|---|---|---|---|
+| `curiosita` | 5 | no cap | a theme a 10-year-old finds interesting (`curiosities`), never one of the last 20; Claude names the Italian Wikipedia article and its photo goes on the blackboard |
+| `notizia` | 2 | 3 | the news not yet told; if none is interesting it skips |
+| `meteo` | 2 | 2 | forecast and comparisons; only a real change, otherwise it skips |
+| `casa` | 1 | 2 | who is home, agenda, room temperatures, today's events, memories |
+| `ricordo` | 1 | 1 | the long-term memory |
+| `domanda` | 1 | 1 | a question on a theme |
+| `aerei` | 1 | 1 | the nearest plane (only if there is one) |
+
+The caps change with `director_topics_max` (for example `{curiosita: 0}` turns curiosities off).
+Long-term memories are sent only for `ricordo` and `casa`. Lines never start with the listener's
+name; lines with Claude's corrections ("no, aspetta") and lines with degrees, percentages or km/h
+not found in the data are discarded; the current time is removed.
+
 Topics already said today (tomorrow's weather, updates, current temperatures, Claude usage, planes)
 are recognised from the text and not repeated; temperatures come back only if they changed by 2
 degrees or 3 hours have passed, or if you ask.

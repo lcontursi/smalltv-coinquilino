@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.1.0
+
+- **The director has a topic each turn.** It used to choose freely among everything it knew and
+  chose weather and the motorbike almost every time (15 of 28 lines in a day). Now each turn draws a
+  topic (a curiosity, a news item, the weather, the house, a memory, a question, a plane) with a
+  weight and a daily cap (weather twice, news three times, a memory once), and Claude receives only
+  the data for that topic. Long-term memories go to the director only for the memory and house
+  topics. If there is nothing worth saying (no interesting news, no real weather change) it skips.
+  New options: `director_topics_max`, `curiosities`.
+- **Curiosities with a photo.** The most frequent topic: something a 10-year-old finds interesting
+  (animals, space, inventions, records...), with themes that don't repeat. Claude names the Italian
+  Wikipedia article and its picture goes on the blackboard; the curiosity comes back in the showcase
+  for 12 hours.
+- Lines no longer start with the listener's name ("Zio Mario, ..."), and news items lose the fixed
+  "la notizia più utile..." opening.
+- Lines where Claude corrects itself ("no, aspetta...", "non ripeto la formula") are discarded.
+- Arrival greetings and director lines are discarded if they contain degrees, percentages or km/h
+  that are not in the data (a parcel and 12 degrees were invented on 12/11); arrivals are told to
+  use only the facts given.
+- The current time is removed from lines ("oggi alle 17:14 le previsioni..."), so they don't come
+  back hours later with an old time.
+- Long-term facts not confirmed for 10 days are forgotten (habits and preferences stay).
+- The MCP chat caches Home Assistant's tools and the instructions (prompt caching): every round
+  after the first pays a tenth for that part.
+
 ## 3.0.5
 
 - A sentence that takes more than one page now stays on the cube for `show_minutes`, like a short one,

@@ -20,7 +20,7 @@ It is built as an **extension of Home Assistant**, not a closed gadget:
   anything from any automation or script, with simple rules for an empty house, the night, and
   repetitions. Ready-made **blueprints** cover the usual cases: lights left on in an empty house,
   climate off while a window is open, the doorbell, low batteries, updates, someone coming home
-  (Proximity), parcels (17TRACK).
+  (Proximity), parcels (17TRACK), waste collection.
 - **It reads what you already have**: people and presence, weather, to-do lists (Local To-do,
   Alexa's…), calendars, Workday, room temperatures, power, Claude usage sensors.
 - **You can talk to it**: from a text helper on a dashboard, from Telegram anywhere, from Siri and
@@ -67,8 +67,9 @@ The texts are in Italian.
 
 ## The character
 
-- **"Director"** — every ~25 minutes, while someone is home and awake, Claude picks what is worth
-  saying from everything the character knows.
+- **"Director"** — every ~25 minutes, while someone is home and awake, Claude says one thing on a
+  topic drawn for that turn (most often a curiosity with a photo from Wikipedia; weather, news, the
+  house, memories and questions each with a daily cap), so it doesn't talk only about the weather.
 - **Memory** — the day's events, an evening diary, and a long-term memory rewritten every night
   with what's worth keeping for weeks (people's tastes, plans, things in progress — not who comes
   and goes). In the chat: *"ricordati che…"*, *"dimentica…"*, *"non parlare più di aerei"*.

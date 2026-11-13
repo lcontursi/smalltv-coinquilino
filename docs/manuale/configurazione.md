@@ -77,6 +77,8 @@ I nomi dei tipi di chiacchiera (`chatter_day_max`, `voice_kinds`) sono quelli de
 | `min_gap_minutes` | 15 | tra due avvisi in coda (gli urgenti passano sempre) |
 | `max_per_hour` | 4 | avvisi in coda per ora |
 | `chatter_day_max` | quelli di serie | tetto al giorno per tipo, es. `{news.headline: 8}` |
+| `director_topics_max` | quelli di serie | tetto al giorno per argomento del regista, es. `{meteo: 1, curiosita: 0}` (vedi [Il personaggio](personaggio.md#il-regista)) |
+| `curiosities` | elenco di serie | temi delle curiosità e delle domande del regista |
 | `show_minutes` | 20 | quanto restano una frase (corta o lunga), una lavagnetta, una schermata |
 | `card_seconds` | 40 | durata minima di lavagnette e schermate |
 | `cards` | true | grafici, radar e disegni sulla lavagnetta |

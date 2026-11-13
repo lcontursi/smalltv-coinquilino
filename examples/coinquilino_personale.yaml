@@ -173,6 +173,10 @@ feeds:                                 # notizie: feed RSS, ognuno con la sua et
 #   news.headline: 8
 #   home.people: 2
 #   weather.now: 4
+# director_topics_max:                 # 3.1: argomenti del regista al giorno (curiosita, notizia,
+#   meteo: 1                           #   meteo, casa, ricordo, domanda, aerei); 0 = mai
+#   curiosita: 99
+# curiosities: ["i vulcani", "gli squali", "i Romani"]   # temi delle curiosità (al posto di quelli di serie)
 
 # ------------------------------------------------------------------ agenda di Home Assistant (2.2)
 # Citofono, batterie, aggiornamenti, pacchi e "sta arrivando" sono blueprint di Home Assistant

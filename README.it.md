@@ -20,7 +20,7 @@ di Home Assistant.
   fa dire qualunque cosa da qualunque automazione o script, con regole semplici per la casa vuota, la
   notte e le ripetizioni. I **blueprint** pronti coprono i casi soliti: luci accese a casa vuota,
   clima spento con la finestra aperta, citofono, batterie scariche, aggiornamenti, qualcuno che sta
-  tornando (Proximity), pacchi (17TRACK).
+  tornando (Proximity), pacchi (17TRACK), raccolta dei rifiuti.
 - **Legge quello che hai già**: persone e presenza, meteo, liste di cose da fare (Local To-do,
   quella di Alexa…), calendari, Workday, temperature delle stanze, consumi, sensori del consumo di
   Claude.
@@ -69,8 +69,10 @@ pixel art.
 
 ## Il personaggio
 
-- **Il "regista"** — ogni 25 minuti circa, quando qualcuno è in casa e sveglio, Claude sceglie cosa
-  vale la pena dire fra tutto quello che il personaggio sa.
+- **Il "regista"** — ogni 25 minuti circa, quando qualcuno è in casa e sveglio, Claude dice una cosa
+  su un argomento sorteggiato per quel turno (più spesso una curiosità con una foto da Wikipedia;
+  meteo, notizie, casa, ricordi e domande ognuno con un tetto al giorno), così non parla solo del
+  tempo.
 - **La memoria** — i fatti del giorno, il diario della sera e una memoria lunga riscritta ogni notte
   con quello che vale per settimane (gusti, progetti, cose in sospeso — non chi entra ed esce). In
   chat: *"ricordati che…"*, *"dimentica…"*, *"non parlare più di aerei"*.

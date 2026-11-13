@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 
 MAX_RICORDI = 40
 MAX_TESTO = 140
+FATTO_GIORNI = 10         # 3.1: un fatto non riconfermato da 10 giorni si dimentica
 TIPI = ("fatto", "abitudine", "tormentone", "preferenza")
 
 TRATTI = {"chiacchierone": 5, "ironico": 4, "curioso": 7, "affettuoso": 8}
@@ -81,6 +82,16 @@ class Ricordi:
         self.items = out
         self._cap()
         return True
+
+    def scadi(self, oggi=None, giorni=FATTO_GIORNI):
+        """3.1 (CU): un fatto non riconfermato da `giorni` giorni si dimentica (abitudini e
+        preferenze restano). Ritorna quanti ne ha tolti."""
+        oggi = oggi or date.today()
+        limite = (oggi - timedelta(days=giorni)).isoformat()
+        keep = [r for r in self.items if r.get("tipo") != "fatto" or r.get("ultimo", "") >= limite]
+        n = len(self.items) - len(keep)
+        self.items = keep
+        return n
 
     def _cap(self):
         if len(self.items) > MAX_RICORDI:     # via i piu' vecchi mai riconfermati

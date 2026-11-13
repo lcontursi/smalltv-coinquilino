@@ -67,6 +67,7 @@ The rules about the house live in Home Assistant as automation blueprints in
 | **Home Assistant updates** | once a day, the pending `update.*`, to whoever is home; the same list once a week | time (18:00) |
 | **Someone on the way home** | with the **Proximity** integration: below N km and heading towards home, Claude says it in its voice to whoever is home; never at night | distance sensor, direction sensor, who, km (5) |
 | **Parcels (17TRACK)** | when a 17TRACK counter goes up (delivered, ready to be picked up…), says the sentence you chose; phone only with nobody home | 17TRACK sensor, sentence |
+| **Waste collection** | the evening before, what is collected tomorrow, read from a calendar (for example **Waste Collection Schedule**, which covers many collection services); phone only with nobody home | calendar, time (20:00), sentence |
 
 Each blueprint only fires `coinquilino_say`: open it to see exactly what it sends, and copy it as a
 starting point for your own rules.

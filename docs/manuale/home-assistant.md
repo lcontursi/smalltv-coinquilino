@@ -68,6 +68,7 @@ ognuno che ti serve.
 | **Aggiornamenti di Home Assistant** | una volta al giorno gli `update.*` da installare, a chi è in casa; la stessa lista una volta a settimana | ora (18:00) |
 | **Qualcuno sta arrivando** | con l'integrazione **Proximity**: sotto N km e in avvicinamento, Claude lo dice con la sua voce a chi è in casa; mai di notte | sensore di distanza, sensore di direzione, chi, km (5) |
 | **Pacchi (17TRACK)** | quando un contatore di 17TRACK sale (consegnati, da ritirare…), dice la frase che hai scelto; a casa vuota solo sul telefono | sensore di 17TRACK, frase |
+| **Raccolta dei rifiuti** | la sera prima, cosa passa domani, letto da un calendario (per esempio **Waste Collection Schedule**, che copre molti gestori della raccolta); a casa vuota solo sul telefono | calendario, ora (20:00), frase |
 
 Ogni blueprint lancia solo `coinquilino_say`: aprilo per vedere esattamente cosa manda, e copialo
 come punto di partenza per le tue regole.
