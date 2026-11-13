@@ -5,7 +5,9 @@ GeekMagic SmallTV Ultra (ESP8266, 240×240 ST7789). `glimmer-pixel-channel.patch
 **Pixel** channel that shows frames streamed over HTTP, so a server (here: AppDaemon) can draw
 anything on the panel without the ESP8266 having to store images.
 
-The patch is made against glimmer commit `bf7fba4` (October 2026).
+The patch is made against glimmer commit
+[`bf7fba4`](https://github.com/Avinava/glimmer/commit/bf7fba4) (October 2026). Upstream
+discussion: [Avinava/glimmer#5](https://github.com/Avinava/glimmer/issues/5).
 
 ## Build and flash
 
