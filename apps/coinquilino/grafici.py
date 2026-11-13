@@ -8,6 +8,7 @@ e ridotta con antialias, nello stesso stile dello sticker (contorni blu, colori 
   claude(sessione, settimana, font)       due barre dei consumi
   radar(aerei, font)                      aerei intorno a casa (puntini, il piu' vicino evidenziato)
   pixel_art(righe, palette)               disegno di Claude: griglia di caratteri -> colori
+  disegno(righe)                          (3.1.1) disegno di Claude a forme (o pixel art se vecchio)
   settimana(giorni, oggi, font)           (2.0) i giorni prima e dopo oggi: min/max e cielo
   icona(d, cielo, cx, cy, r)              (2.0) sole, nuvole, pioggia, neve, temporale, nebbia
 """
@@ -179,6 +180,76 @@ def pixel_art(righe, palette=None):
             if c:
                 d.rectangle([ox + x * cell, oy + y * cell, ox + (x + 1) * cell - 1, oy + (y + 1) * cell - 1], fill=c)
     return img
+
+
+# ------------------------------------------------------------------ disegni a forme (3.1.1, CM)
+# Un ragazzino di 10 anni non disegna a quadretti: disegna con i pennarelli. Claude scrive forme
+# semplici su un foglio da 160 x 120 e qui diventano un disegno con il contorno, come i grafici.
+COLORI = {"nero": (35, 35, 45), "scuro": INK, "bianco": WHITE, "rosso": RED, "blu": BLUE,
+          "giallo": YELLOW, "verde": GREEN, "verdescuro": (40, 110, 60), "arancione": (245, 140, 40),
+          "rosa": (240, 130, 180), "marrone": (130, 85, 50), "grigio": (150, 150, 160),
+          "azzurro": (120, 200, 240), "viola": (150, 90, 200), "pelle": (252, 229, 203),
+          "beige": (235, 215, 170), "oro": (230, 180, 50), "celeste": (200, 230, 250)}
+FOGLIO_W, FOGLIO_H = 160, 120
+MAX_FORME = 80
+
+
+def forme(righe):
+    """Le righe del disegno -> lista di forme valide (comando, colore, numeri). Le righe che non
+    si capiscono si saltano: la chiamata e' gia' pagata."""
+    out = []
+    for r in righe:
+        p = str(r).lower().replace(",", " ").split()
+        if not p:
+            continue
+        cmd, rest = p[0], p[1:]
+        col = next((COLORI[x] for x in rest if x in COLORI), None)
+        nums = []
+        for x in rest:
+            try:
+                nums.append(float(x))
+            except ValueError:
+                pass
+        need = {"sfondo": 0, "rett": 4, "cerchio": 3, "ellisse": 4, "linea": 4, "poli": 6}.get(cmd)
+        if need is None or col is None or len(nums) < need:
+            continue
+        if cmd == "poli" and len(nums) % 2:
+            nums = nums[:-1]
+        out.append((cmd, col, nums))
+    return out[:MAX_FORME]
+
+
+def disegno(righe):
+    """Il disegno di Claude -> lavagnetta. Forme (3.1.1) se ce ne sono almeno 3, altrimenti la
+    vecchia griglia in pixel art (i disegni salvati in galleria prima della 3.1.1)."""
+    fs = forme(righe)
+    if len(fs) < 3:
+        return pixel_art(righe)
+    img, d = _canvas()
+    k = min(CARD_W / FOGLIO_W, CARD_H / FOGLIO_H) * S
+    ox, oy = (CARD_W * S - FOGLIO_W * k) / 2, (CARD_H * S - FOGLIO_H * k) / 2
+
+    def P(x, y):
+        return (ox + max(0.0, min(FOGLIO_W, x)) * k, oy + max(0.0, min(FOGLIO_H, y)) * k)
+    bordo = max(1, int(S * 0.9))
+    for cmd, col, n in fs:
+        if cmd == "sfondo":
+            d.rectangle([P(0, 0), P(FOGLIO_W, FOGLIO_H)], fill=col)
+        elif cmd == "rett":
+            (x0, y0), (x1, y1) = P(min(n[0], n[2]), min(n[1], n[3])), P(max(n[0], n[2]), max(n[1], n[3]))
+            d.rectangle([x0, y0, x1, y1], fill=col, outline=INK, width=bordo)
+        elif cmd == "ellisse":
+            (x0, y0), (x1, y1) = P(min(n[0], n[2]), min(n[1], n[3])), P(max(n[0], n[2]), max(n[1], n[3]))
+            d.ellipse([x0, y0, x1, y1], fill=col, outline=INK, width=bordo)
+        elif cmd == "cerchio":
+            (x0, y0), (x1, y1) = P(n[0] - n[2], n[1] - n[2]), P(n[0] + n[2], n[1] + n[2])
+            d.ellipse([x0, y0, x1, y1], fill=col, outline=INK, width=bordo)
+        elif cmd == "linea":
+            w = int(max(1.0, min(8.0, n[4] if len(n) > 4 else 2.0)) * k)
+            d.line([P(n[0], n[1]), P(n[2], n[3])], fill=col, width=w, joint="curve")
+        elif cmd == "poli":
+            d.polygon([P(n[i], n[i + 1]) for i in range(0, len(n), 2)], fill=col, outline=INK, width=bordo)
+    return _done(img)
 
 
 # ------------------------------------------------------------------ meteo dei giorni (2.0)

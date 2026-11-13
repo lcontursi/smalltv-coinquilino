@@ -23,7 +23,8 @@ Next to Alessio, a little board with:
   **hourly chart**;
 - the **radar** of the planes around the house;
 - Claude **usage** charts (with `sensor.claude_usage_*` sensors);
-- today's **drawing**, a 24×24 pixel-art picture drawn by Claude (at most every `drawing_hours`);
+- today's **drawing**, a scene Claude draws with simple shapes like a 10-year-old with felt-tip pens
+  (at most every `drawing_hours`), on a theme from `curiosities`;
 - the **gallery** of recent drawings.
 
 `cards: false` turns it off.

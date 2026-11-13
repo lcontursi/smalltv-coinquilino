@@ -23,7 +23,8 @@ Accanto ad Alessio, una tavoletta con:
   il **grafico orario**;
 - il **radar** degli aerei intorno a casa;
 - i grafici del **consumo di Claude** (con i sensori `sensor.claude_usage_*`);
-- il **disegno** di oggi, in pixel art 24×24 disegnato da Claude (al massimo ogni `drawing_hours`);
+- il **disegno** di oggi, una scena che Claude disegna a forme semplici come un ragazzino di 10 anni
+  con i pennarelli (al massimo ogni `drawing_hours`), su un tema di `curiosities`;
 - la **galleria** degli ultimi disegni.
 
 `cards: false` la spegne.

@@ -41,6 +41,7 @@ def test_urgent_facts_keep_their_order(make_app, cube):
 def test_claude_is_stopped_at_the_closing_tag(make_app, cube, monkeypatch):
     fake = FakeClaude(monkeypatch, "<umore>happy</umore><frase>Che bella giornata!")   # come con lo stop
     app = make_app(dict(DAY, host=cube.host, anthropic_api_key="k"))
+    app._argomento = lambda: ("casa", None)          # 3.1: le curiosita' si fermano a </foto>
     text = app._ask_claude({"kind": "regista", "key": "x"})
     body = fake.calls[0]["json"]
     assert body["stop_sequences"] == ["</frase>"]

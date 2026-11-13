@@ -113,3 +113,30 @@ def test_mcp_chat_caches_tools_and_system(make_app, cube, monkeypatch):
     assert isinstance(sysb, list) and sysb[0]["cache_control"] == {"type": "ephemeral"}
     app._api("", ["ciao"], [], "chat", 100)
     assert isinstance(fake.calls[1]["json"]["system"], str)
+
+
+# ------------------------------------------------------------------ 3.2: disegni a forme (CM)
+FORME = ["sfondo celeste", "rett 0 85 160 120 verde", "poli marrone 30 85 80 20 130 85",
+         "cerchio 80 14 8 arancione", "linea 80 20 70 60 arancione 3", "boh 1 2 3"]
+
+
+def test_shapes_are_parsed_and_drawn():
+    import grafici
+    fs = grafici.forme(FORME)
+    assert [f[0] for f in fs] == ["sfondo", "rett", "poli", "cerchio", "linea"]   # "boh" saltata
+    img = grafici.disegno(FORME)
+    assert img.size == (162, 128) and img.getpixel((81, 120))[1] > 150           # prato verde
+    assert grafici.disegno(["..RR..", ".RRRR.", "..RR..", "......", "......", "......"]).size == (162, 128)
+
+
+def test_drawing_uses_shapes_and_no_owner_name(make_app, cube, monkeypatch):
+    fake = FakeClaude(monkeypatch, "<titolo>Zio Mario, ecco il mio vulcano</titolo><disegno>\n"
+                                   + "\n".join(FORME))
+    app = make_app(dict(DAY, host=cube.host, anthropic_api_key="k", owner="Zio Mario",
+                        curiosities=["i vulcani"]))
+    title, img = app._ask_drawing()
+    assert title == "Ecco il mio vulcano" and img.size == (162, 128)
+    body = fake.calls[0]["json"]
+    assert "pennarelli" in body["system"] and "i vulcani" in body["messages"][0]["content"]
+    assert app.drawing_kept[1][0] == "sfondo celeste"
+    assert app._argomenti_oggi()["disegni"] == ["i vulcani"]

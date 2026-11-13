@@ -259,8 +259,8 @@ Le foto che mandi al bot restano in casa: non vanno a Claude né altrove. Nient'
   acceso/spento, dopo aver riletto lo stato. `control_switch` li spegne dalla plancia.
 - **Telegram**: l'integrazione di Home Assistant accetta solo gli ID chat che hai autorizzato lì;
   l'app li ricontrolla con `telegram_chats`, e solo `telegram_commanders` può comandare la casa.
-- Download limitati a 2 MB; risposte limitate in lunghezza; i disegni devono essere una
-  griglia valida di massimo 24×24 con i colori ammessi.
+- Download limitati a 2 MB; risposte limitate in lunghezza; i disegni devono essere al massimo
+  80 forme conosciute con i colori ammessi (o, i vecchi, una griglia di massimo 24×24).
 - La chiave non finisce mai nei log. Meglio `!secret` che una chiave in chiaro in un file.
 - I font sono inclusi (SIL OFL): all'avvio non si scarica niente.
 

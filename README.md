@@ -252,8 +252,8 @@ Nothing else is sent anywhere. Remove a source from `sources` to stop it.
   from a dashboard.
 - **Telegram**: Home Assistant's integration only accepts the chat IDs you allowed there; the app
   checks them again against `telegram_chats`, and only `telegram_commanders` can command the house.
-- Downloads are capped at 2 MB; replies are capped in length; pixel-art drawings must be a
-  valid 24×24 grid in the allowed palette.
+- Downloads are capped at 2 MB; replies are capped in length; drawings must be at most 80
+  known shapes in the allowed colours (or, for old ones, a 24×24 grid).
 - The key is never logged. Prefer `!secret` to a plain key in a file.
 - Fonts are bundled (SIL OFL): nothing is downloaded at start-up.
 

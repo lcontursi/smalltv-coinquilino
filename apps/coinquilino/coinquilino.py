@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -197,7 +197,7 @@ KIND_HINT = {
     "diario": "È sera: scrivi il tuo diario di oggi, come un ragazzino sveglio, partendo da 'Caro "
               "diario'. Massimo 3 frasi brevi e 280 caratteri in tutto, usando solo i fatti "
               "di oggi qui sotto.",
-    "disegno": "Fai un piccolo disegno in pixel art per {owner}, legato a {tema}.",
+    "disegno": "Fai un disegno su {tema}: una cosa che ti piace o che hai scoperto.",
     "random": "Di' qualcosa di tuo, per fare compagnia: a volte una curiosità vera e "
               "molto nota (sulla stagione, su {city}, sulle moto, sulla radio, sugli "
               "animali, sullo spazio), a volte una battuta asciutta, "
@@ -315,11 +315,16 @@ PLANE_LINES = ["Sopra casa passa {desc}.", "Un aereo sopra di noi: {desc}.",
                "Sta passando {desc}.", "{owner}, alza gli occhi: {desc}."]
 
 DRAW_RULE = (
-    " Per il disegno usa una griglia da 10 a 16 righe, tutte della stessa lunghezza (da 10 "
-    "a 16 caratteri), un carattere per pixel, solo questi: . vuoto, K blu scuro, W bianco, "
-    "R rosso, B blu, Y giallo, G verde, O arancione, P rosa, N marrone, A grigio, C azzurro, "
-    "V viola, S color pelle. Rispondi con <titolo>una frase di Alessio sul disegno, max 50 "
-    "caratteri</titolo> e <disegno>le righe, una per riga</disegno>, nient'altro.")
+    " Disegni come un ragazzino di 10 anni con i pennarelli, su un foglio largo 160 e alto 120 "
+    "(0,0 in alto a sinistra): una scena vera, con uno sfondo, il soggetto grande e qualche "
+    "dettaglio, da 12 a 50 forme. Una forma per riga, solo queste: "
+    "sfondo COLORE | rett x0 y0 x1 y1 COLORE | cerchio x y raggio COLORE | "
+    "ellisse x0 y0 x1 y1 COLORE | linea x0 y0 x1 y1 COLORE spessore | "
+    "poli COLORE x1 y1 x2 y2 x3 y3 ... (almeno 3 punti). Le forme dopo coprono quelle prima. "
+    "Colori: nero, scuro, bianco, rosso, blu, giallo, verde, verdescuro, arancione, rosa, "
+    "marrone, grigio, azzurro, viola, pelle, beige, oro, celeste. Rispondi con <titolo>una "
+    "frase tua sul disegno, max 50 caratteri, senza il nome di chi guarda</titolo> e "
+    "<disegno>le forme, una per riga</disegno>, nient'altro.")
 
 # Notizie che un bimbo sorridente non dovrebbe annunciare
 SAD_WORDS = ("mort", "uccis", "omicid", "femminicid", "incident", "violenz", "violent", "strage",
@@ -2521,7 +2526,7 @@ class Coinquilino(hass.Hass):
                 img = self._curio_cards.get(x.get("id"))
                 res = (x["testo"], img) if img is not None else x["testo"]
             elif x["tipo"] == "disegno" and self.cards_on and hasattr(self.char, "render_card"):
-                res = f"Il disegno di oggi: {x['titolo']}", grafici.pixel_art(x["righe"])
+                res = f"Il disegno di oggi: {x['titolo']}", grafici.disegno(x["righe"])
             elif x["tipo"] == "chiacchiera":
                 try:
                     res = getattr(self, "_f_" + x["kind"])()
@@ -3644,7 +3649,7 @@ class Coinquilino(hass.Hass):
         today = date.today().isoformat()
         a = self.mem.setdefault("detto", {}).get("argomenti") or {}
         if a.get("_data") != today:
-            a = {"_data": today, "temi": a.get("temi", [])[-20:]}
+            a = {"_data": today, "temi": a.get("temi", [])[-20:], "disegni": a.get("disegni", [])[-10:]}
             self.mem["detto"]["argomenti"] = a
         return a
 
@@ -3718,31 +3723,35 @@ class Coinquilino(hass.Hass):
             return None
 
     def _ask_drawing(self):
-        """Disegno in pixel art di Claude -> (titolo, immagine) oppure (None, None)."""
+        """Disegno di Claude a forme (3.1.1, CM) -> (titolo, immagine) oppure (None, None)."""
         fk, fdesc = self._festa()
-        temi = ["la stagione", self.city, "una moto", "un animale", "lo spazio", "il mare",
-                "una cosa buffa", "il cibo"]
+        a = self._argomenti_oggi()
+        temi = [t for t in self.curiosita if t not in a.get("disegni", [])] or list(self.curiosita)
         tema = fdesc or random.choice(temi)
+        a["disegni"] = (a.get("disegni", []) + [tema])[-10:]
         j = self._api(DRAW_RULE, [self.T(KIND_HINT["disegno"]).replace("{tema}", tema)],
-                      self._context(), "disegno", 1200, stop="</disegno>")
+                      self._context(topic="disegno"), "disegno", 2500, stop="</disegno>",
+                      ricordi=False)
         raw = "".join(b.get("text", "") for b in j.get("content", []) if b.get("type") == "text")
         self._extra_text(raw, "<titolo>", j, "disegno")
         t = re.findall(r"<titolo>(.*?)</titolo>", raw, re.S)
         g = re.findall(r"<disegno>(.*?)</disegno>", raw, re.S)
         if not g and "<disegno>" in raw:                       # tag non chiuso: si prende il resto
             g = [raw.split("<disegno>")[-1].split("</")[0]]
-        rows = self._grid(g[-1]) if g else None
+        rows = [r.strip() for r in g[-1].strip().splitlines() if r.strip()] if g else []
+        if len(grafici.forme(rows)) < 3:
+            rows = self._grid(g[-1]) if g else None          # una griglia alla vecchia maniera va bene
         if not rows:
             why = (" (tetto di token finito prima del disegno: ragionamento troppo lungo?)"
                    if j.get("stop_reason") == "max_tokens" and not g else "")
             self.log(f"disegno non valido{why}: stop={j.get('stop_reason')} {raw[:200]!r}",
                      level="WARNING")
             return None, None
-        title = (clean(t[-1]).strip(' "\'') if t else "") or "Ti ho fatto un disegno!"
+        title = self._senza_nome((clean(t[-1]).strip(' "\'') if t else "") or "Ti ho fatto un disegno!")
         title = title[:70]
         self.drawing_kept = (title, rows)
         self.remember(f"ho fatto un disegno: {tema}")
-        return title, grafici.pixel_art(rows)
+        return title, grafici.disegno(rows)
 
     @staticmethod
     def _grid(text):
@@ -4283,7 +4292,7 @@ class Coinquilino(hass.Hass):
         if not gal or not (self.cards_on and hasattr(self.char, "render_card")):
             return None
         g = random.choice(gal)
-        return f"Ti ricordi questo mio disegno? {g['titolo']}", grafici.pixel_art(g["righe"])
+        return f"Ti ricordi questo mio disegno? {g['titolo']}", grafici.disegno(g["righe"])
 
     def _f_api(self):
         a = self.mem.get("api") or {}

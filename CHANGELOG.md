@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.0
+
+- **Drawings like a 10-year-old's.** No more 16-pixel grids: Claude draws a scene with felt-tip-like
+  shapes (background, rectangles, circles, ellipses, lines, polygons, 18 colours) on a 160x120 sheet,
+  drawn on the blackboard with outlines like the charts. Subjects come from the curiosity themes,
+  never one of the last 10; the title no longer carries the listener's name ("Un pesce per Zio
+  Mario"); the drawing gets no long-term memories. Old pixel-art drawings in the gallery still show.
+
 ## 3.1.0
 
 - **The director has a topic each turn.** It used to choose freely among everything it knew and
