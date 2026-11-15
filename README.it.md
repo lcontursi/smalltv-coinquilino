@@ -100,7 +100,8 @@ Home Assistant ──► app AppDaemon (questo repo) ──► HTTP ──► Sm
 Sul cubo gira [glimmer](https://github.com/Avinava/glimmer), un firmware libero per lo SmallTV
 Ultra, più una piccola patch (in [`firmware/`](firmware/)) che aggiunge il canale **Pixel**:
 l'ESP8266 non conserva immagini, passa al display i fotogrammi che riceve. Tutto il disegno lo
-fa Home Assistant.
+fa Home Assistant; i fotogrammi che si ripetono (Alessio fermo) si disegnano una volta
+sola e si tengono da parte (fino a ~60 MB), così l'app pesa poco sulla CPU.
 
 ## Cosa serve
 
@@ -113,7 +114,9 @@ fa Home Assistant.
 
 1. **Firmware**: compila e carica glimmer con la patch. Il canale *Pixel* è già attivo;
    nella pagina web del cubo puoi spegnere gli altri canali.
-2. **AppDaemon**: nella configurazione dell'add-on aggiungi `pillow` a `python_packages`.
+2. **AppDaemon**: nella configurazione dell'add-on aggiungi `pillow` a `python_packages`. Facoltativo
+   ma più leggero: `production_mode: true` sotto `appdaemon:` in `appdaemon.yaml`, così AppDaemon
+   smette di rileggere i file delle app ogni secondo (dopo un aggiornamento riavvia l'add-on).
 3. **App**: copia la cartella `apps/coinquilino/` nella cartella `apps` di AppDaemon
    (con l'add-on: `/addon_configs/a0d7b954_appdaemon/apps/`, o `/app_configs/…` nelle versioni recenti). Con HACS: aggiungi questo
    repository come repository personalizzato di tipo *AppDaemon*.

@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.2.0"
+VERSION = "3.3.2"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -594,6 +594,9 @@ class Coinquilino(hass.Hass):
         nc = a.get("night_clock", "alessio")
         self.night_clock = {True: "alessio", False: "off"}.get(nc, str(nc).lower())
         self._night_img = (None, None)                         # (minuto, immagine) del quadrante
+        self._frames = (None, {})          # (3.3) fotogrammi gia' disegnati per la scena di adesso
+        self._cubo = requests.Session()    # (3.3.1) una connessione sola col cubo, non una al secondo
+        self._cubo.trust_env = False       # niente proxy e .netrc da cercare a ogni fotogramma
         self._night_forced = 0.0
         self.night_handed = None            # None | "ok" (quadrante di glimmer) | "no" (non disponibile)
         self.night_retry = 0.0
@@ -4413,7 +4416,7 @@ class Coinquilino(hass.Hass):
             part = part.point(self.lut)
         if dim and self.night_dim < 1 and self._is_night():
             part = ImageEnhance.Brightness(part).enhance(self.night_dim)
-        r = requests.post(f"http://{self.host}/frame",
+        r = self._cubo.post(f"http://{self.host}/frame",
                           params={"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0},
                           files={"frame": ("f.bin", to_rgb565(part), "application/octet-stream")},
                           headers=self._headers(), timeout=(3, 8))
@@ -4422,6 +4425,38 @@ class Coinquilino(hass.Hass):
             return False
         r.raise_for_status()
         return True
+
+    def _render(self, mood, sky, weather, page, talking, more, festa, plane, extra, card=None):
+        """Il fotogramma della cameretta (3.3) o della lavagnetta (3.3.1, card = (immagine,
+        istante del messaggio)). Il disegno dipende solo dai suoi dati, quindi i fotogrammi della
+        scena di adesso si tengono da parte: quando Alessio e' fermo il giro di 252 fotogrammi si
+        disegna una volta sola, poi costa quasi niente (era la CPU del NUC).
+        Cambia qualcosa (umore, cielo, frase, eta'...)? Si butta tutto e si ricomincia."""
+        scene = extra.get("scene")
+        key = (self.char.__name__, getattr(self.char, "AGE", None), mood, sky, weather, page,
+               talking, more, festa, plane, self.font_path,
+               tuple(sorted(scene.items())) if scene else None,
+               (id(card[0]), card[1]) if card else None)
+        if self._frames[0] != key:
+            self._frames = (key, {})
+        cache = self._frames[1]
+        # (3.3.2) con una frase o la lavagnetta ogni fotogramma e' diverso (la bocca si muove) e
+        # restano a lungo: basta un giro di 12, multiplo dei passi di bocca, luci e accessori
+        # (2, 3, 4), e dopo 12 secondi viene tutto da qui invece di ridisegnare ogni secondo
+        frame = self.frame % 12 if (page or card) else self.frame
+        img = cache.get(frame)
+        if img is None:
+            if card:
+                img = self.char.render_card(card[0], mood, sky, weather, page, frame, talking,
+                                            more, seed=7, font_path=self.font_path, festa=festa)
+            else:
+                img = self.char.render(mood, sky, weather, page, frame, talking, more, seed=7,
+                                       font_path=self.font_path, festa=festa, plane=plane, **extra)
+            prev = cache.get((frame - 1) % 252)
+            if prev is not None and not ImageChops.difference(img, prev).getbbox():
+                img = prev                       # uguale al precedente: una copia sola in memoria
+            cache[frame] = img
+        return img
 
     def _tick(self, kwargs):
         if time.time() < self.next_at or not self.draw_lock.acquire(blocking=False):
@@ -4432,7 +4467,7 @@ class Coinquilino(hass.Hass):
             night_face = self.night_clock == "alessio" and self._is_night()
             if night_face:
                 self.next_at = time.time() + 15     # il quadrante cambia una volta al minuto
-            st = requests.get(f"http://{self.host}/pixel", timeout=(3, 3)).json()
+            st = self._cubo.get(f"http://{self.host}/pixel", timeout=(3, 3)).json()
             self.fail = 0
             if not st.get("active"):
                 self.screen = None
@@ -4441,8 +4476,8 @@ class Coinquilino(hass.Hass):
                     self._show_channel(hold=0)
                 return
             if "wait" in st and st["wait"] != self.wait_text:     # firmware .3 o successivi
-                requests.post(f"http://{self.host}/pixel", json={"wait": self.wait_text},
-                              headers=self._headers(), timeout=(3, 3))
+                self._cubo.post(f"http://{self.host}/pixel", json={"wait": self.wait_text},
+                                headers=self._headers(), timeout=(3, 3))
             full = st.get("seq") != self.seq or self.screen is None
             self.seq = st.get("seq")
 
@@ -4469,16 +4504,13 @@ class Coinquilino(hass.Hass):
                 img = ph["frame"]
             elif m and m.get("card") is not None and hasattr(self.char, "render_card") \
                     and time.time() - m["t0"] < self._bubble_life(m):
-                img = self.char.render_card(m["card"], mood, sky, weather, page, self.frame,
-                                            talking, more, seed=7, font_path=self.font_path,
-                                            festa=festa)
+                img = self._render(mood, sky, weather, page, talking, more, festa, None, {},
+                                   card=(m["card"], m["t0"]))
             elif m and m.get("screen") is not None and time.time() - m["t0"] < self._bubble_life(m):
                 img = m["screen"]                    # schermata a tutto cubo (2.0): ferma
             else:
                 extra = {"scene": self._scene()} if self.char is alessio and self.scenes_on else {}
-                img = self.char.render(mood, sky, weather, page, self.frame, talking, more,
-                                       seed=7, font_path=self.font_path, festa=festa,
-                                       plane=plane, **extra)
+                img = self._render(mood, sky, weather, page, talking, more, festa, plane, extra)
             if img.size != (st.get("w", 240), st.get("h", 200)):
                 img = img.resize((st.get("w", 240), st.get("h", 200)), Image.NEAREST)
 

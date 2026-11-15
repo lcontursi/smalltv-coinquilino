@@ -1,5 +1,31 @@
 # Changelog
 
+## 3.3.2
+
+- **Sentences and the blackboard loop on 12 frames.** While Alessio talks every frame differs (the
+  mouth moves) and a sentence or a blackboard stays up for minutes, so the cache could not help and
+  the whole supersampled room was redrawn every second (10-12% of the VM's CPU in a second profile
+  on the NUC). With text or a blackboard the animation now loops on 12 frames, a multiple of the
+  mouth, lights and accessories steps (2, 3, 4), and after 12 seconds everything comes from the cache.
+
+## 3.3.1
+
+- **Blackboard frames are cached too.** Charts, drawings and curiosity photos on the blackboard
+  were still redrawn every second while shown; they now use the same frame cache as the bedroom
+  (measured with a sampling profiler on the NUC: it was the heaviest drawing left).
+- **One connection to the cube.** Frames and status checks reuse a single HTTP session instead
+  of opening a new connection (and looking up proxies and `.netrc`) several times a second.
+- Tip for a lighter AppDaemon: with `production_mode: true` in `appdaemon.yaml` AppDaemon stops
+  scanning and re-parsing the app files; after copying a new version, restart the add-on.
+
+## 3.3.0
+
+- **Much less CPU.** The bedroom frame was redrawn with Pillow every second even when nothing
+  changed, keeping AppDaemon at 12-27% of the Home Assistant VM's CPU (and the host's fan on).
+  Drawing depends only on its inputs, so the frames of the current scene are now kept: when
+  Alessio is still, the 252-frame loop is drawn once and then costs almost nothing (measured on
+  the NUC: up to ~60 MB more memory while a scene lasts). Any change (mood, sky, weather, sentence, scene, age) starts over.
+
 ## 3.2.0
 
 - **Drawings like a 10-year-old's.** No more 16-pixel grids: Claude draws a scene with felt-tip-like

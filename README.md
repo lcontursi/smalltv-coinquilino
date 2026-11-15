@@ -96,7 +96,8 @@ Home Assistant ──► AppDaemon app (this repo) ──► HTTP ──► Smal
 The cube runs [glimmer](https://github.com/Avinava/glimmer), an open firmware for the SmallTV
 Ultra, plus a small patch (in [`firmware/`](firmware/)) that adds a **Pixel** channel: the
 ESP8266 doesn't store images, it just streams the frames it receives to the display. All the
-drawing happens in Home Assistant.
+drawing happens in Home Assistant; frames that repeat (Alessio standing still) are drawn once
+and kept (up to ~60 MB), so the app stays light on the CPU.
 
 ## Requirements
 
@@ -108,7 +109,9 @@ drawing happens in Home Assistant.
 
 1. **Firmware**: build and flash glimmer with the patch. The *Pixel* channel is on by
    default; on the cube's web page you can turn off the other channels.
-2. **AppDaemon**: in the add-on configuration add `pillow` to `python_packages`.
+2. **AppDaemon**: in the add-on configuration add `pillow` to `python_packages`. Optional but
+   lighter: `production_mode: true` under `appdaemon:` in `appdaemon.yaml`, so AppDaemon stops
+   re-reading the app files every second (after an update, restart the add-on).
 3. **App**: copy the folder `apps/coinquilino/` into AppDaemon's `apps` folder
    (with the add-on: `/addon_configs/a0d7b954_appdaemon/apps/`, or `/app_configs/…` on recent versions). With HACS, add this
    repository as a custom repository of type *AppDaemon*.
