@@ -18,7 +18,7 @@ It is built as an **extension of Home Assistant**, not a closed gadget:
 
 - **Your automations decide, the character tells.** One event, `coinquilino_say`, makes it say
   anything from any automation or script, with simple rules for an empty house, the night, and
-  repetitions. Ready-made **blueprints** cover the usual cases: lights left on in an empty house,
+  repetitions, or put an urgent notice on the whole cube. Ready-made **blueprints** cover the usual cases: lights left on in an empty house,
   climate off while a window is open, the doorbell, low batteries, updates, someone coming home
   (Proximity), parcels (17TRACK), waste collection.
 - **It reads what you already have**: people and presence, weather, to-do lists (Local To-do,
@@ -46,28 +46,32 @@ The texts are in Italian.
   something else replaces them; when there is nothing new, today's showcase comes back in turn (the
   week's chart, the house screen, today's drawing, the diary, the director's best lines), so you
   see it even if you look at the cube hours later.
-- **Full-cube screens** (`screens`) — the week's weather, the house (who is home, room temperatures
-  and their change in the last hour, lights on) and, with `power_sensor` / `energy_sensor`, the
-  power now and today's energy against yesterday's. Two more appear only when they matter: the
-  **batteries** (rings, when one is below `battery_screen_below`, 30% by default) and the
-  **thermostat** (current and target temperature, heating or not, the other rooms) while it is on.
-  Also: a **clock** with the weather outside and the next appointment, the **house as icons** (lights,
-  climate, temperature, humidity, doors), **now playing** (cover, title, artist, progress) while a
-  `media_player` plays, **doors and windows** when one is open, and today's **activity** (e.g. steps,
-  `activity_entities`), and **Home Assistant** itself (CPU, memory, disk, from System
-  Monitor).
-  Screens sit in the same white frame as the photos.
+- **Full-cube screens** (`screens`) — a small dashboard that the character runs for you: it picks
+  what to show and when, and says one line about it. They sit in the same white frame as the photos,
+  with big type for a small screen.
+  - always in turn: the **week's weather**, the **house** (who is home, room temperatures and their
+    change in the last hour, lights on), a **clock** with the weather outside and the next
+    appointment, the **house as icons** (lights, climate, temperature, humidity, doors), **power**
+    (with `power_sensor` / `energy_sensor`), **Home Assistant** itself (CPU, memory, disk and load,
+    from the System Monitor integration) and today's **activity** (e.g. steps, `activity_entities`);
+  - only when they matter: **batteries** (one below `battery_screen_below`, 30% by default), the
+    **thermostat** while it is on, **now playing** (cover, title, artist, progress) while a
+    `media_player` plays, **doors and windows** when one is open;
+  - **urgent notices** from your automations: `coinquilino_say` with `urgent` puts the text on the
+    whole cube with a coloured band (washing machine done, doorbell, alarm).
 - **Weather that compares** (Open-Meteo, no key) — "domani 5 gradi in meno", "dopo giorni asciutti,
   pioggia giovedì"; the hourly chart only when rain or gusts are due; the morning greeting says
   today against yesterday.
 - **Agenda** — to-do items with a time and appointments coming up are said on the cube and sent to
-  the phone; *"ricordami di … alle 18"* in the chat lands in your to-do list, *"fatto …"* ticks it off.
+  the phone, with human dates (*"domani alle 18"*, *"sabato"*); *"ricordami di … alle 18"* in the chat
+  lands in your to-do list, *"fatto …"* ticks it off.
 - **Planes overhead** (public ADS-B, no key) — airline, type, altitude and route of the plane
   passing above the house, seen through the window and on a radar.
 - **News** from any RSS feeds, national and local, with categories to skip; sad news is never
   announced.
 - **Family photos** sent to the Telegram bot: at once on the cube, then in turn a few times a day;
-  they never leave your home (album in `/media/coinquilino`, manageable from the *Media* panel).
+  they never leave your home (album in `/media/coinquilino`, manageable from the *Media* panel). When
+  the album is almost empty it asks you for a few more.
 - **A room that changes** (`scenes`) — season, real fog and snow, the date, a different object on
   the shelf every day; costumes for Halloween, Christmas, Easter, birthdays and your patron saint.
 - **Night** — a dark night clock with the moon and Alessio asleep in a corner; quiet until morning,
@@ -89,8 +93,9 @@ The texts are in Italian.
   someone is home, and a sensor counts what the API costs this month.
 - **Voice** — through any `tts.speak` target, with a mute switch.
 
-![Holidays](docs/feste.png)
+![Full-cube screens](docs/schermate.png)
 ![Blackboard](docs/lavagnetta.png)
+![Holidays](docs/feste.png)
 ![Bandit](docs/bandit.png)
 
 ## How it works

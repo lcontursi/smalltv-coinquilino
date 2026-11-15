@@ -95,7 +95,11 @@ def temperature(ore, temp, pioggia, font):
                                 radius=2 * S, fill=(170, 205, 245))
     pts = [(X(i), Y(t)) for i, t in enumerate(temp)]
     d.line(pts, fill=RED, width=3 * S, joint="curve")
-    segnati = {0, n - 1, temp.index(max(temp)), temp.index(min(temp))}   # 3.5: il massimo una volta sola
+    # 3.5: il massimo una volta sola; prima minimo e massimo, poi gli estremi se non sono troppo vicini
+    segnati = []
+    for i in (temp.index(max(temp)), temp.index(min(temp)), 0, n - 1):
+        if all(abs(pts[i][0] - pts[j][0]) > 22 * S or abs(pts[i][1] - pts[j][1]) > 14 * S for j in segnati):
+            segnati.append(i)
     for i, (x, y) in enumerate(pts):
         if i in segnati:
             d.ellipse([x - 3 * S, y - 3 * S, x + 3 * S, y + 3 * S], fill=WHITE, outline=RED, width=S)
@@ -666,8 +670,10 @@ def schermata_musica(copertina, titolo, artista, album, posizione, durata, in_pa
     _etichetta(d, tx, y0 + 2, "in pausa" if in_pausa else "in riproduzione", font,
                GRIGIO if in_pausa else GREEN, px=11)
     y = y0 + 28
+    fondo = y0 + lato                                       # artista e album stanno accanto alla copertina
     for testo, px, col in ((artista, 15, INK), (album, 13, GRIGIO)):
-        for r in _righe(d, testo or "", font, px, larg, massimo=2):
+        quante = max(0, min(2, int((fondo - y) / (px + 4))))
+        for r in _righe(d, testo or "", font, px, larg, massimo=quante) if quante else []:
             d.text((tx * S, y * S), r, font=_font(font, px), fill=col)
             y += px + 4
     yt = y0 + lato + 8

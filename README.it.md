@@ -18,7 +18,7 @@ di Home Assistant.
 
 - **Le tue automazioni decidono, il personaggio racconta.** Un solo evento, `coinquilino_say`, gli
   fa dire qualunque cosa da qualunque automazione o script, con regole semplici per la casa vuota, la
-  notte e le ripetizioni. I **blueprint** pronti coprono i casi soliti: luci accese a casa vuota,
+  notte e le ripetizioni, o mettere un avviso urgente a tutto cubo. I **blueprint** pronti coprono i casi soliti: luci accese a casa vuota,
   clima spento con la finestra aperta, citofono, batterie scariche, aggiornamenti, qualcuno che sta
   tornando (Proximity), pacchi (17TRACK), raccolta dei rifiuti.
 - **Legge quello che hai già**: persone e presenza, meteo, liste di cose da fare (Local To-do,
@@ -47,28 +47,33 @@ pixel art.
   restano finché non arriva altro; quando non c'è niente di nuovo torna a giro la vetrina del giorno
   (il grafico della settimana, la schermata della casa, il disegno, il diario, le frasi migliori del
   regista), così la vedi anche se guardi il cubo ore dopo.
-- **Schermate a tutto cubo** (`screens`) — il meteo della settimana, la casa (chi c'è, le
-  temperature delle stanze e quanto sono cambiate nell'ultima ora, le luci accese) e, con
-  `power_sensor` / `energy_sensor`, la potenza di adesso e l'energia di oggi contro ieri. Altre due
-  compaiono solo quando servono: le **batterie** (anelli, quando una è sotto `battery_screen_below`,
-  30% di norma) e il **termostato** (temperatura di adesso e voluta, se scalda, le altre stanze)
-  finché è acceso. In più: l'**orologio** con il meteo fuori e il prossimo appuntamento, la **casa a
-  icone** (luci, clima, temperatura, umidità, porte), **in riproduzione** (copertina, titolo, artista,
-  avanzamento) mentre un `media_player` suona, **porte e finestre** quando una è aperta e l'**attività**
-  di oggi (per esempio i passi, `activity_entities`), e **Home Assistant** stesso (CPU,
-  memoria, disco, da System Monitor). Le schermate stanno nella stessa cornice bianca
-  delle foto.
+- **Schermate a tutto cubo** (`screens`) — una piccola plancia che il personaggio gestisce per te:
+  sceglie cosa mostrare e quando, e ci dice una frase sopra. Stanno nella stessa cornice bianca delle
+  foto, con caratteri grandi per uno schermo piccolo.
+  - sempre, a turno: il **meteo della settimana**, la **casa** (chi c'è, le temperature delle stanze
+    e quanto sono cambiate nell'ultima ora, le luci accese), l'**orologio** con il meteo fuori e il
+    prossimo appuntamento, la **casa a icone** (luci, clima, temperatura, umidità, porte), la
+    **corrente** (con `power_sensor` / `energy_sensor`), **Home Assistant** stesso (CPU, memoria,
+    disco e carico, dall'integrazione System Monitor) e l'**attività** di oggi (per esempio i passi,
+    `activity_entities`);
+  - solo quando servono: le **batterie** (una sotto `battery_screen_below`, 30% di norma), il
+    **termostato** finché è acceso, **in riproduzione** (copertina, titolo, artista, avanzamento)
+    mentre un `media_player` suona, **porte e finestre** quando una è aperta;
+  - gli **avvisi urgenti** delle tue automazioni: `coinquilino_say` con `urgent` mette il testo a
+    tutto cubo con una fascia colorata (lavatrice finita, citofono, allarme).
 - **Il meteo a confronto** (Open-Meteo, senza chiave) — "domani 5 gradi in meno", "dopo giorni
   asciutti, pioggia giovedì"; il grafico orario solo quando arrivano pioggia o raffiche; il saluto
   del mattino confronta oggi con ieri.
-- **Agenda** — le voci con l'ora e gli appuntamenti vicini li dice sul cubo e li manda sul telefono;
-  *"ricordami di … alle 18"* in chat finisce nella tua lista, *"fatto …"* la spunta.
+- **Agenda** — le voci con l'ora e gli appuntamenti vicini li dice sul cubo e li manda sul telefono,
+  con date "umane" (*"domani alle 18"*, *"sabato"*); *"ricordami di … alle 18"* in chat finisce nella
+  tua lista, *"fatto …"* la spunta.
 - **Aerei sopra casa** (ADS-B pubblico, senza chiave) — compagnia, modello, quota e rotta
   dell'aereo che passa sopra casa, alla finestra e su un radar.
 - **Notizie** da qualunque feed RSS, nazionali e locali, con le categorie da saltare; le notizie
   tristi non le annuncia mai.
 - **Le foto di famiglia** mandate al bot di Telegram: subito sul cubo, poi a giro qualche volta al
   giorno; non escono mai di casa (album in `/media/coinquilino`, gestibile dal pannello *Media*).
+  Quando l'album è quasi vuoto te ne chiede qualcuna.
 - **Una cameretta che cambia** (`scenes`) — la stagione, nebbia e neve vere, la data, un oggetto
   diverso sulla mensola ogni giorno; costumi per Halloween, Natale, Pasqua, i compleanni e il santo
   patrono.
@@ -93,8 +98,9 @@ pixel art.
   mese.
 - **La voce** — con qualunque `tts.speak`, con un interruttore per zittirlo.
 
-![Feste](docs/feste.png)
+![Schermate a tutto cubo](docs/schermate.png)
 ![Lavagnetta](docs/lavagnetta.png)
+![Feste](docs/feste.png)
 ![Bandit](docs/bandit.png)
 
 ## Come funziona
