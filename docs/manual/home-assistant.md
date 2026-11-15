@@ -33,6 +33,8 @@ All fields are optional:
 | `repeat_hours` | number | …before this many hours (default 12) |
 | `remember` | sentence | a fact for today's memory, not said |
 | `quiet_seconds` | seconds | no chatter for a while (e.g. the doorbell just rang) |
+| `urgent` | `info` · `avviso` · `urgente` · `ok` · true | (3.5) on the whole cube, with a coloured band; `true` = `urgente` |
+| `title`, `seconds` | text, seconds | the band's title and how long it stays (default `show_minutes`) |
 | `expect_arrival` | true | someone is coming in: the greeting starts at once |
 | `mood`, `minutes` | mood name, minutes | a temporary mood (e.g. `welcome`) |
 | `cube` (or `instance`) | instance name | only that cube, with more than one |

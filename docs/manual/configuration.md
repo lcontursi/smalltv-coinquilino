@@ -50,6 +50,11 @@ The names used for chatter kinds (`chatter_day_max`, `voice_kinds`) are the ones
 | `battery_entities` | all sensors with `device_class: battery` | which batteries the battery screen shows |
 | `battery_screen_below` | 30 | the battery screen appears only when one is below this percentage (0: always, in turn) |
 | `thermostat` | first `climate.*` with a temperature | the entity of the thermostat screen (shown only while it is on) |
+| `media_players` | all `media_player.*` | where the now-playing screen looks (only while one plays) |
+| `ha_url` | from `ha_mcp_url` | Home Assistant's address, for album covers |
+| `door_entities` | `binary_sensor` door/window/opening/motion | the doors-and-windows screen (only when one is open) |
+| `activity_entities` | none | today's activity screen (e.g. phone steps) |
+| `photo_ask_below`, `photo_ask_days` | 5, 14 | with fewer photos it asks for some on Telegram, at most every N days (0: never) |
 | `room_change_degrees` | 1.5 | a room changing this much in an hour is worth saying |
 
 ## What it talks about

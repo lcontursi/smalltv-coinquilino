@@ -52,7 +52,11 @@ pixel art.
   `power_sensor` / `energy_sensor`, la potenza di adesso e l'energia di oggi contro ieri. Altre due
   compaiono solo quando servono: le **batterie** (anelli, quando una è sotto `battery_screen_below`,
   30% di norma) e il **termostato** (temperatura di adesso e voluta, se scalda, le altre stanze)
-  finché è acceso. Le schermate stanno nella stessa cornice bianca delle foto.
+  finché è acceso. In più: l'**orologio** con il meteo fuori e il prossimo appuntamento, la **casa a
+  icone** (luci, clima, temperatura, umidità, porte), **in riproduzione** (copertina, titolo, artista,
+  avanzamento) mentre un `media_player` suona, **porte e finestre** quando una è aperta e l'**attività**
+  di oggi (per esempio i passi, `activity_entities`). Le schermate stanno nella stessa cornice bianca
+  delle foto.
 - **Il meteo a confronto** (Open-Meteo, senza chiave) — "domani 5 gradi in meno", "dopo giorni
   asciutti, pioggia giovedì"; il grafico orario solo quando arrivano pioggia o raffiche; il saluto
   del mattino confronta oggi con ieri.
@@ -215,6 +219,7 @@ facoltativi:
 | `key`, `repeat_hours` | la stessa cosa non torna prima di N ore (12) |
 | `remember` | un fatto da ricordare, senza dirlo |
 | `quiet_seconds` | sta zitto per un po' (per esempio quando suona il citofono) |
+| `urgent`, `title`, `seconds` | (3.5) a tutto cubo con una fascia colorata (`info`, `avviso`, `urgente`, `ok`; `true` = `urgente`) per N secondi |
 | `expect_arrival` | qualcuno sta entrando: il saluto parte subito |
 | `mood`, `minutes` | un umore per qualche minuto |
 | `cube` | solo per quell'istanza |

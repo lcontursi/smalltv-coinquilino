@@ -26,6 +26,8 @@ RED = (232, 80, 70)
 BLUE = (70, 140, 230)
 YELLOW = (250, 190, 40)
 GREEN = (90, 170, 80)
+GRIGIO = (130, 145, 165)
+ORANGE = (240, 140, 50)
 
 _FONTS = {}
 
@@ -51,20 +53,40 @@ def _done(img):
     return img.resize((img.width // S, img.height // S), Image.LANCZOS)
 
 
+TITOLO_CARD = 20        # 3.5: spazio del titolo sulle lavagnette
+
+
+def _titolo(d, testo, font, w=None):
+    """Il titolo, centrato in alto: 15 px sulle schermate a tutto cubo, 11 sulle lavagnette."""
+    w = w or FULL_W
+    card = w < FULL_W
+    d.text((w / 2 * S, (3 if card else 6) * S), testo, font=_font(font, 13 if card else 16), fill=INK, anchor="mt")
+
+
+def _barra(d, x0, y, x1, h, frazione, colore):
+    """Una barra di livello: fondo grigio con bordo, dentro il colore (stessa per tutte)."""
+    d.rounded_rectangle([x0 * S, y * S, x1 * S, (y + h) * S], radius=h / 2 * S, fill=GRID, outline=INK, width=S)
+    w = (x1 - x0 - 4) * max(0.0, min(1.0, frazione))
+    if w > h - 4:
+        d.rounded_rectangle([(x0 + 2) * S, (y + 2) * S, (x0 + 2 + w) * S, (y + h - 2) * S], radius=(h - 4) / 2 * S,
+                            fill=colore)
+
+
 def temperature(ore, temp, pioggia, font):
     """ore: ['14', '15', ...]; temp: gradi; pioggia: probabilita' % (stessa lunghezza)."""
     img, d = _canvas()
+    _titolo(d, "Prossime ore", font, CARD_W)
     n = len(temp)
     if n < 2:
         return _done(img)
-    x0, x1, y0, y1 = 22, CARD_W - 8, 10, CARD_H - 22
+    x0, x1, y0, y1 = 22, CARD_W - 8, TITOLO_CARD + 8, CARD_H - 18
     tmin, tmax = math.floor(min(temp)) - 1, math.ceil(max(temp)) + 1
     def X(i): return (x0 + (x1 - x0) * i / (n - 1)) * S
     def Y(t): return (y1 - (y1 - y0) * (t - tmin) / max(1, tmax - tmin)) * S
     for t in range(int(tmin), int(tmax) + 1):
         if t % 2 == 0:
             d.line([(x0 * S, Y(t)), (x1 * S, Y(t))], fill=GRID, width=S)
-            d.text((2 * S, Y(t) - 6 * S), f"{t}°", font=_font(font, 10), fill=INK)
+            d.text((2 * S, Y(t) - 6 * S), f"{t}°", font=_font(font, 11), fill=INK)
     bw = (x1 - x0) / n * 0.55
     for i, p in enumerate(pioggia):                       # barre della pioggia
         if p and p > 5:
@@ -73,33 +95,31 @@ def temperature(ore, temp, pioggia, font):
                                 radius=2 * S, fill=(170, 205, 245))
     pts = [(X(i), Y(t)) for i, t in enumerate(temp)]
     d.line(pts, fill=RED, width=3 * S, joint="curve")
+    segnati = {0, n - 1, temp.index(max(temp)), temp.index(min(temp))}   # 3.5: il massimo una volta sola
     for i, (x, y) in enumerate(pts):
-        if i in (0, n - 1) or temp[i] in (max(temp), min(temp)):
+        if i in segnati:
             d.ellipse([x - 3 * S, y - 3 * S, x + 3 * S, y + 3 * S], fill=WHITE, outline=RED, width=S)
-            d.text((x, y - 6 * S), f"{temp[i]:.0f}°", font=_font(font, 11), fill=INK, anchor="mb")
+            # agli estremi l'etichetta va verso l'interno, per non coprire i gradi dell'asse
+            anchor = "lb" if i == 0 else "rb" if i == n - 1 else "mb"
+            d.text((x + (2 * S if i == 0 else 0), y - 6 * S), f"{temp[i]:.0f}°", font=_font(font, 12), fill=INK,
+                   anchor=anchor)
     step = max(1, n // 6)
     for i in range(0, n, step):
-        d.text((X(i), (y1 + 4) * S), ore[i], font=_font(font, 10), fill=INK, anchor="mt")
+        d.text((X(i), (y1 + 4) * S), ore[i], font=_font(font, 11), fill=INK, anchor="mt")
     return _done(img)
 
 
 def claude(sessione, settimana, font):
     img, d = _canvas()
+    _titolo(d, "Claude", font, CARD_W)
     rows = [("5 ore", sessione), ("7 giorni", settimana)]
     for k, (lab, v) in enumerate(rows):
         if v is None:
             continue
-        y = 22 + k * 52
+        y = TITOLO_CARD + 12 + k * 46
         d.text((10 * S, y * S), lab, font=_font(font, 13), fill=INK)
         d.text(((CARD_W - 10) * S, y * S), f"{v:.0f}%", font=_font(font, 13), fill=INK, anchor="ra")
-        bx0, bx1, by = 10, CARD_W - 10, y + 20
-        d.rounded_rectangle([bx0 * S, by * S, bx1 * S, (by + 16) * S], radius=8 * S, fill=GRID,
-                            outline=INK, width=2 * S)
-        col = GREEN if v < 60 else YELLOW if v < 80 else RED
-        w = (bx1 - bx0 - 4) * min(100, v) / 100
-        if w > 6:
-            d.rounded_rectangle([(bx0 + 2) * S, (by + 2) * S, (bx0 + 2 + w) * S, (by + 14) * S],
-                                radius=6 * S, fill=col)
+        _barra(d, 10, y + 20, CARD_W - 10, 14, v / 100, GREEN if v < 60 else YELLOW if v < 80 else RED)
     return _done(img)
 
 
@@ -115,26 +135,21 @@ def dollari(x):
 def budget(speso, tetto, font):
     """La spesa delle API: quanto si e' speso questo mese (e su quanto, se c'e' un budget)."""
     img, d = _canvas()
-    d.text((10 * S, 16 * S), "API questo mese", font=_font(font, 13), fill=INK)
-    d.text(((CARD_W - 10) * S, 46 * S), dollari(speso), font=_font(font, 22), fill=INK, anchor="ra")
+    _titolo(d, "API questo mese", font, CARD_W)
+    d.text((CARD_W / 2 * S, (56 if tetto else CARD_H / 2 + 8) * S), dollari(speso), font=_font(font, 26), fill=INK,
+           anchor="mm")
     if tetto:
         v = 100 * speso / tetto
-        bx0, bx1, by = 10, CARD_W - 10, 82
-        d.rounded_rectangle([bx0 * S, by * S, bx1 * S, (by + 16) * S], radius=8 * S, fill=GRID,
-                            outline=INK, width=2 * S)
-        col = GREEN if v < 60 else YELLOW if v < 80 else RED
-        w = (bx1 - bx0 - 4) * min(100, v) / 100
-        if w > 6:
-            d.rounded_rectangle([(bx0 + 2) * S, (by + 2) * S, (bx0 + 2 + w) * S, (by + 14) * S],
-                                radius=6 * S, fill=col)
-        d.text((10 * S, 104 * S), "su " + dollari(tetto), font=_font(font, 11), fill=INK)
+        _barra(d, 10, 80, CARD_W - 10, 14, v / 100, GREEN if v < 60 else YELLOW if v < 80 else RED)
+        d.text((CARD_W / 2 * S, 100 * S), "su " + dollari(tetto), font=_font(font, 13), fill=GRIGIO, anchor="mt")
     return _done(img)
 
 
 def radar(aerei, font, raggio_km=25):
     """aerei: lista di dict con km, lat, lon (rispetto a casa: dlat/dlon gia' calcolati come dx,dy in km)."""
     img, d = _canvas()
-    cx, cy, r = CARD_W / 2, CARD_H / 2 + 2, CARD_H / 2 - 8
+    _titolo(d, "Aerei qui intorno", font, CARD_W)
+    cx, cy, r = CARD_W / 2, (CARD_H + TITOLO_CARD) / 2, (CARD_H - TITOLO_CARD) / 2 - 4
     for k in (1, 2, 3):
         rr = r * k / 3
         d.ellipse([(cx - rr) * S, (cy - rr) * S, (cx + rr) * S, (cy + rr) * S], outline=GRID, width=2 * S)
@@ -143,8 +158,8 @@ def radar(aerei, font, raggio_km=25):
     # casa
     d.polygon([((cx - 5) * S, (cy + 1) * S), ((cx + 5) * S, (cy + 1) * S), (cx * S, (cy - 5) * S)], fill=INK)
     d.rectangle([(cx - 3.5) * S, (cy + 1) * S, (cx + 3.5) * S, (cy + 6) * S], fill=INK)
-    d.text(((cx - r) * S, 2 * S), f"{raggio_km} km", font=_font(font, 9), fill=INK)
-    d.text(((cx + r) * S, 2 * S), "N", font=_font(font, 10), fill=INK, anchor="ra")
+    d.text((8 * S, (CARD_H - 4) * S), f"{raggio_km} km", font=_font(font, 12), fill=GRIGIO, anchor="lb")
+    d.text((cx * S, (cy - r - 1) * S), "N", font=_font(font, 11), fill=GRIGIO, anchor="mb")
     for i, a in enumerate(aerei[:12]):
         px = cx + a["dx"] / raggio_km * r
         py = cy - a["dy"] / raggio_km * r
@@ -308,9 +323,9 @@ def settimana(giorni, oggi, font, prima=3, dopo=3, w=CARD_W, h=CARD_H, titolo=No
         return _done(img)
     n = len(gg)
     top = 0
-    if titolo:
-        d.text((w / 2 * S, 4 * S), titolo, font=_font(font, 13), fill=INK, anchor="mt")
-        top = 20
+    titolo = titolo or "La settimana"
+    _titolo(d, titolo, font, w)
+    top = TITOLO_CARD if w < FULL_W else 24
     cw = (w - 4) / n
     k = max(9, min(13, int(cw / 2.3)))                       # misura del testo
     y_nome, y_ico = top + 3, top + 3 + k + cw * .32 + 2
@@ -344,10 +359,6 @@ def settimana(giorni, oggi, font, prima=3, dopo=3, w=CARD_W, h=CARD_H, titolo=No
 FULL_W, FULL_H = 220, 180
 
 
-def _titolo(d, testo, font, w=FULL_W):
-    d.text((w / 2 * S, 6 * S), testo, font=_font(font, 15), fill=INK, anchor="mt")
-
-
 def schermata_casa(persone, stanze, luci, font):
     """persone: [(nome, in_casa)]; stanze: [(nome, gradi, variazione_in_un'ora o None)];
     luci: quante luci accese."""
@@ -359,7 +370,7 @@ def schermata_casa(persone, stanze, luci, font):
         yy = y + (k // 3) * 22
         d.ellipse([x * S, (yy + 3) * S, (x + 10) * S, (yy + 13) * S], fill=GREEN if dentro else GRID,
                   outline=INK, width=S)
-        px, larg = 12, (FULL_W - 20) / 3 - 18
+        px, larg = 14, (FULL_W - 20) / 3 - 18
         while px > 8 and d.textlength(nome[:12], font=_font(font, px)) / S > larg:
             px -= 1                                          # il nome lungo si rimpicciolisce
         d.text(((x + 15) * S, (yy + 8) * S), nome[:12], font=_font(font, px),
@@ -368,8 +379,8 @@ def schermata_casa(persone, stanze, luci, font):
     d.line([(10 * S, y * S), ((FULL_W - 10) * S, y * S)], fill=GRID, width=S)
     y += 8
     for nome, t, dv in stanze[:max(0, int((FULL_H - 22 - y) / 20))]:   # quante ne stanno sopra le luci
-        d.text((14 * S, y * S), nome[:16], font=_font(font, 13), fill=INK)
-        d.text(((FULL_W - 50) * S, y * S), f"{t:.1f}°".replace(".", ","), font=_font(font, 13), fill=INK, anchor="ra")
+        d.text((14 * S, y * S), nome[:16], font=_font(font, 15), fill=INK)
+        d.text(((FULL_W - 50) * S, y * S), f"{t:.1f}°".replace(".", ","), font=_font(font, 15), fill=INK, anchor="ra")
         if dv is not None and abs(dv) >= .3:
             up = dv > 0
             col = RED if up else BLUE
@@ -377,11 +388,11 @@ def schermata_casa(persone, stanze, luci, font):
             k = 1 if up else -1                               # triangolo in su o in giu'
             pts = [(cx - 5, cy + 3 * k), (cx + 5, cy + 3 * k), (cx, cy - 4 * k)]
             d.polygon([(px * S, py * S) for px, py in pts], fill=col)
-            d.text(((FULL_W - 27) * S, y * S), f"{abs(dv):.1f}".replace(".", ","), font=_font(font, 11), fill=col)
+            d.text(((FULL_W - 27) * S, y * S), f"{abs(dv):.1f}".replace(".", ","), font=_font(font, 13), fill=col)
         y += 20
     d.text((FULL_W / 2 * S, (FULL_H - 6) * S),
            "nessuna luce accesa" if not luci else f"{luci} luc{'e accesa' if luci == 1 else 'i accese'}",
-           font=_font(font, 12), fill=INK, anchor="mb")
+           font=_font(font, 14), fill=INK, anchor="mb")
     return _done(img)
 
 
@@ -391,22 +402,17 @@ def schermata_consumi(watt, kwh_oggi, kwh_ieri, font):
     _titolo(d, "Corrente", font)
     if watt is not None:
         d.text((FULL_W / 2 * S, 62 * S), f"{watt:.0f} W", font=_font(font, 34), fill=INK, anchor="mm")
-        d.text((FULL_W / 2 * S, 88 * S), "adesso", font=_font(font, 11), fill=(130, 145, 165), anchor="mm")
+        d.text((FULL_W / 2 * S, 88 * S), "adesso", font=_font(font, 13), fill=(130, 145, 165), anchor="mm")
     if kwh_oggi is not None:
         top = max(kwh_oggi, kwh_ieri or 0, 0.1)
         for k, (lab, v) in enumerate((("oggi", kwh_oggi), ("ieri", kwh_ieri))):
             if v is None:
                 continue
             y = 104 + k * 36
-            d.text((14 * S, y * S), lab, font=_font(font, 12), fill=INK)
-            d.text(((FULL_W - 14) * S, y * S), f"{v:.1f} kWh".replace(".", ","), font=_font(font, 12),
+            d.text((14 * S, y * S), lab, font=_font(font, 14), fill=INK)
+            d.text(((FULL_W - 14) * S, y * S), f"{v:.1f} kWh".replace(".", ","), font=_font(font, 14),
                    fill=INK, anchor="ra")
-            d.rounded_rectangle([14 * S, (y + 17) * S, (FULL_W - 14) * S, (y + 29) * S], radius=6 * S,
-                                fill=GRID, outline=INK, width=S)
-            wv = (FULL_W - 32) * min(1, v / top)
-            if wv > 5:
-                d.rounded_rectangle([16 * S, (y + 19) * S, (16 + wv) * S, (y + 27) * S], radius=4 * S,
-                                    fill=YELLOW if k == 0 else (170, 185, 205))
+            _barra(d, 14, y + 17, FULL_W - 14, 14, v / top, YELLOW if k == 0 else (170, 185, 205))
     return _done(img)
 
 
@@ -414,10 +420,6 @@ def schermata_consumi(watt, kwh_oggi, kwh_ieri, font):
 # Una schermata e' fatta di celle (rettangoli) e di widget che si disegnano dentro una cella:
 # `griglia` dice dove stanno le celle, `w_anello` e `w_valore` cosa c'e' dentro. Cosi' una schermata
 # nuova e' poche righe e il bordo (DC) potra' stare in un punto solo.
-GRIGIO = (130, 145, 165)
-ORANGE = (240, 140, 50)
-
-
 class Cella:
     """Un rettangolo dello schermo, in pixel veri (non ingranditi)."""
     __slots__ = ("x", "y", "w", "h")
@@ -459,9 +461,9 @@ def colore_livello(p):
 
 def w_anello(d, c, valore, nome, font, colore=None):
     """Un anello che si riempie fino a `valore` (0-100), la percentuale al centro, il nome sotto."""
-    px_nome = 11 if c.w < 90 else 12
+    px_nome = 13 if c.w < 90 else 14
     r = max(10, min(c.w / 2 - 3, (c.h - px_nome - 8) / 2, 52))
-    cx, cy = c.cx, c.y + 3 + r
+    cx, cy = c.cx, c.cy - (px_nome + 4) / 2                 # anello + nome, al centro della cella
     larg = max(4, r * .3)
     box = [(cx - r) * S, (cy - r) * S, (cx + r) * S, (cy + r) * S]
     d.ellipse(box, outline=GRID, width=int(larg * S))
@@ -477,7 +479,7 @@ def w_anello(d, c, valore, nome, font, colore=None):
 def w_valore(d, c, testo, etichetta, font, px=22, colore=INK):
     """Un numero grande con la sua etichetta sotto, al centro della cella."""
     d.text((c.cx * S, (c.cy - 6) * S), testo, font=_font(font, px), fill=colore, anchor="mm")
-    d.text((c.cx * S, (c.cy + px / 2 + 2) * S), etichetta, font=_font(font, 11), fill=GRIGIO, anchor="mt")
+    d.text((c.cx * S, (c.cy + px / 2 + 2) * S), etichetta, font=_font(font, 13), fill=GRIGIO, anchor="mt")
 
 
 def _etichetta(d, x, y, testo, font, colore, px=12):
@@ -518,7 +520,7 @@ def schermata_termostato(attuale, obiettivo, azione, umidita, stanze, font):
         voci.append((f"a {obiettivo:.1f}°".replace(".", ",").replace(",0°", "°"), INK))
     if umidita is not None:
         voci.append((f"umidità {umidita:.0f}%", (110, 160, 210)))
-    f = _font(font, 12)
+    f = _font(font, 13)
     def largo(vv):
         return sum(d.textlength(t, font=f) / S + 14 for t, _ in vv) + 6 * (len(vv) - 1)
     while len(voci) > 1 and largo(voci) > FULL_W - 12:
@@ -526,9 +528,215 @@ def schermata_termostato(attuale, obiettivo, azione, umidita, stanze, font):
     totale = largo(voci)
     x = (FULL_W - totale) / 2
     for t, col in voci:
-        x = _etichetta(d, x, 94, t, font, col) + 6
+        x = _etichetta(d, x, 94, t, font, col, px=13) + 6
     if stanze:
         d.line([(10 * S, 124 * S), ((FULL_W - 10) * S, 124 * S)], fill=GRID, width=S)
         for c, (nome, t) in zip(griglia(len(stanze[:3]), alto=128, basso=2), stanze[:3], strict=True):
             w_valore(d, c, f"{t:.1f}°".replace(".", ","), nome[:12], font, px=20)
+    return _done(img)
+
+
+# ------------------------------------------------------------------ altre schermate (3.5, DA, CV, CX)
+def _testo_largo(d, testo, font, px, larg, minimo=9):
+    """La misura piu' grande (fino a `minimo`) con cui `testo` sta in `larg` pixel."""
+    while px > minimo and d.textlength(testo, font=_font(font, px)) / S > larg:
+        px -= 1
+    return px
+
+
+def _righe(d, testo, font, px, larg, massimo=4):
+    """Il testo diviso in righe che stanno in `larg` pixel (al massimo `massimo`, l'ultima con …)."""
+    f = _font(font, px)
+    righe, riga = [], ""
+    for p in testo.split():
+        prova = (riga + " " + p).strip()
+        if riga and d.textlength(prova, font=f) / S > larg:
+            righe.append(riga)
+            riga = p
+        else:
+            riga = prova
+    if riga:
+        righe.append(riga)
+    if len(righe) > massimo:
+        righe = righe[:massimo]
+        righe[-1] = righe[-1].rstrip(".,;:") + "…"
+    return righe
+
+
+def schermata_orologio(ora, data, esterno, appuntamento, font):
+    """ora: "14:05"; data: "sabato 15 novembre"; esterno: (cielo, gradi) o None;
+    appuntamento: (quando, cosa) o None, il prossimo dei calendari."""
+    img, d = _canvas(FULL_W, FULL_H)
+    d.text((FULL_W / 2 * S, 46 * S), ora, font=_font(font, 54), fill=INK, anchor="mm")
+    d.text((FULL_W / 2 * S, 84 * S), data, font=_font(font, _testo_largo(d, data, font, 16, FULL_W - 20)),
+           fill=GRIGIO, anchor="mm")
+    y = 100
+    if esterno:
+        cielo, t = esterno
+        testo = "fuori" if t is None else f"fuori {t:.0f}°"
+        larg = d.textlength(testo, font=_font(font, 18)) / S
+        x0 = (FULL_W - larg - 34) / 2
+        icona(d, cielo, x0 + 14, y + 14, 13)
+        d.text(((x0 + 34) * S, (y + 14) * S), testo, font=_font(font, 18), fill=INK, anchor="lm")
+        y += 34
+    if appuntamento:
+        quando, cosa = appuntamento
+        d.line([(10 * S, y * S), ((FULL_W - 10) * S, y * S)], fill=GRID, width=S)
+        d.text((FULL_W / 2 * S, (y + 6) * S), quando, font=_font(font, 14), fill=ORANGE, anchor="mt")
+        cosa = cosa[:40]
+        d.text((FULL_W / 2 * S, (y + 22) * S), cosa,
+               font=_font(font, _testo_largo(d, cosa, font, 17, FULL_W - 16)), fill=INK, anchor="mt")
+    return _done(img)
+
+
+def _w_icona(d, c, tipo, acceso):
+    """Le icone della casa: luce, clima, termometro, goccia, porta. Accesa = colorata."""
+    r = min(c.w * .24, (c.h - 40) / 2.2)
+    cx, cy = c.cx, c.cy - 15                                # icona, valore ed etichetta al centro
+    lw = max(1, int(S * 1.2))
+
+    def P(x, y):
+        return (x * S, y * S)
+    if tipo == "luce":
+        d.ellipse([P(cx - r * .7, cy - r), P(cx + r * .7, cy + r * .4)], fill=YELLOW if acceso else GRID,
+                  outline=INK, width=lw)
+        d.rectangle([P(cx - r * .35, cy + r * .4), P(cx + r * .35, cy + r * .8)], fill=GRIGIO, outline=INK,
+                    width=lw)
+    elif tipo == "clima":
+        col = ORANGE if acceso else GRIGIO
+        for k in range(6):
+            a = math.radians(k * 60)
+            d.line([P(cx, cy), P(cx + math.cos(a) * r, cy + math.sin(a) * r)], fill=col, width=int(S * 2))
+        d.ellipse([P(cx - r * .25, cy - r * .25), P(cx + r * .25, cy + r * .25)], fill=WHITE, outline=INK,
+                  width=lw)
+    elif tipo == "termometro":
+        d.rounded_rectangle([P(cx - r * .22, cy - r), P(cx + r * .22, cy + r * .4)], radius=r * .22 * S,
+                            fill=WHITE, outline=INK, width=lw)
+        d.ellipse([P(cx - r * .42, cy + r * .2), P(cx + r * .42, cy + r * 1.0)], fill=RED, outline=INK, width=lw)
+        d.rectangle([P(cx - r * .1, cy - r * .3), P(cx + r * .1, cy + r * .4)], fill=RED)
+    elif tipo == "goccia":
+        d.polygon([P(cx, cy - r), P(cx - r * .6, cy + r * .1), P(cx + r * .6, cy + r * .1)], fill=BLUE)
+        d.ellipse([P(cx - r * .6, cy - r * .3), P(cx + r * .6, cy + r * .9)], fill=BLUE, outline=INK, width=lw)
+    else:                                                   # porta (o finestra)
+        d.rectangle([P(cx - r * .55, cy - r), P(cx + r * .55, cy + r)], fill=ORANGE if acceso else GRID,
+                    outline=INK, width=lw)
+        d.ellipse([P(cx + r * .2, cy - r * .08), P(cx + r * .36, cy + r * .08)], fill=INK)
+
+
+def schermata_icone(voci, font):
+    """La casa a icone. voci: [(tipo, valore, etichetta, acceso)], al massimo 6;
+    tipo: luce | clima | termometro | goccia | porta."""
+    img, d = _canvas(FULL_W, FULL_H)
+    _titolo(d, "La casa", font)
+    voci = voci[:6]
+    for c, (tipo, valore, etichetta, acceso) in zip(griglia(len(voci)), voci, strict=True):
+        _w_icona(d, c, tipo, acceso)
+        y = c.cy - 15 + min(c.w * .24, (c.h - 40) / 2.2) + 4
+        v = str(valore)
+        d.text((c.cx * S, y * S), v, font=_font(font, _testo_largo(d, v, font, 18, c.w)), fill=INK, anchor="mt")
+        d.text((c.cx * S, (y + 20) * S), etichetta,
+               font=_font(font, _testo_largo(d, etichetta, font, 13, c.w)), fill=GRIGIO, anchor="mt")
+    return _done(img)
+
+
+def _mmss(s):
+    s = max(0, int(s))
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def schermata_musica(copertina, titolo, artista, album, posizione, durata, in_pausa, font):
+    """In riproduzione (CV): copertina (immagine o None), titolo, artista, album; posizione e durata in
+    secondi (o None); in_pausa."""
+    img, d = _canvas(FULL_W, FULL_H)
+    lato, x0, y0 = 84, 10, 12
+    if copertina is not None:
+        cop = copertina.convert("RGB").resize((lato * S, lato * S), Image.LANCZOS)
+        img.paste(cop, (x0 * S, y0 * S))
+        d.rectangle([x0 * S, y0 * S, (x0 + lato) * S, (y0 + lato) * S], outline=INK, width=S)
+    else:
+        d.rounded_rectangle([x0 * S, y0 * S, (x0 + lato) * S, (y0 + lato) * S], radius=8 * S, fill=GRID,
+                            outline=INK, width=S)
+        cx, cy = x0 + lato / 2, y0 + lato / 2                # una nota
+        d.ellipse([(cx - 16) * S, (cy + 6) * S, (cx - 2) * S, (cy + 18) * S], fill=INK)
+        d.rectangle([(cx - 4) * S, (cy - 22) * S, (cx - 1) * S, (cy + 12) * S], fill=INK)
+        d.polygon([((cx - 1) * S, (cy - 22) * S), ((cx + 16) * S, (cy - 12) * S), ((cx - 1) * S, (cy - 10) * S)],
+                  fill=INK)
+    tx = x0 + lato + 10
+    larg = FULL_W - tx - 8
+    _etichetta(d, tx, y0 + 2, "in pausa" if in_pausa else "in riproduzione", font,
+               GRIGIO if in_pausa else GREEN, px=11)
+    y = y0 + 28
+    for testo, px, col in ((artista, 15, INK), (album, 13, GRIGIO)):
+        for r in _righe(d, testo or "", font, px, larg, massimo=2):
+            d.text((tx * S, y * S), r, font=_font(font, px), fill=col)
+            y += px + 4
+    yt = y0 + lato + 8
+    for r in _righe(d, titolo or "?", font, 19, FULL_W - 20, massimo=2):
+        d.text((FULL_W / 2 * S, yt * S), r, font=_font(font, _testo_largo(d, r, font, 19, FULL_W - 20)),
+               fill=INK, anchor="mt")
+        yt += 23
+    if durata:
+        pos = max(0, min(durata, posizione or 0))
+        yb = FULL_H - 24
+        _barra(d, 12, yb - 2, FULL_W - 12, 10, pos / durata, ORANGE)
+        d.text((12 * S, (yb + 10) * S), _mmss(pos), font=_font(font, 12), fill=GRIGIO)
+        d.text(((FULL_W - 12) * S, (yb + 10) * S), "-" + _mmss(durata - pos), font=_font(font, 12), fill=GRIGIO,
+               anchor="ra")
+    return _done(img)
+
+
+def schermata_porte(voci, font):
+    """Porte, finestre e movimento. voci: [(nome, aperto_o_movimento, tipo)], tipo door|window|motion;
+    prima quelle aperte, al massimo 7."""
+    img, d = _canvas(FULL_W, FULL_H)
+    _titolo(d, "Porte e finestre", font)
+    voci = sorted(voci, key=lambda v: not v[1])[:7]
+    passo = 20 if len(voci) > 5 else 26
+    y = 28 + (FULL_H - 28 - 4 - passo * len(voci)) / 2 + (passo - 16) / 2
+    for nome, aperto, tipo in voci:
+        if tipo == "motion":
+            stato, col = ("movimento", ORANGE) if aperto else ("tranquillo", GRIGIO)
+        else:
+            stato, col = ("aperta", ORANGE) if aperto else ("chiusa", GREEN)
+        d.ellipse([14 * S, (y + 3) * S, 24 * S, (y + 13) * S], fill=col, outline=INK, width=S)
+        nome = nome[:20]
+        d.text((30 * S, (y + 8) * S), nome, font=_font(font, _testo_largo(d, nome, font, 15, FULL_W - 110)),
+               fill=INK, anchor="lm")
+        d.text(((FULL_W - 14) * S, (y + 8) * S), stato, font=_font(font, 14), fill=col, anchor="rm")
+        y += passo
+    return _done(img)
+
+
+def schermata_numeri(titolo, voci, font):
+    """Numeri grandi con l'etichetta (es. i passi di oggi). voci: [(testo, etichetta)], al massimo 4."""
+    img, d = _canvas(FULL_W, FULL_H)
+    _titolo(d, titolo, font)
+    voci = voci[:4]
+    for c, (testo, etichetta) in zip(griglia(len(voci)), voci, strict=True):
+        px = _testo_largo(d, testo, font, 30 if len(voci) == 1 else 22, c.w - 4)
+        w_valore(d, c, testo, etichetta[:18], font, px=px)
+    return _done(img)
+
+
+URGENZA = {"info": BLUE, "avviso": YELLOW, "urgente": RED, "ok": GREEN}
+
+
+def schermata_avviso(titolo, testo, livello, font):
+    """Notifica a tutto cubo (CX): una fascia colorata col titolo e il testo grande sotto.
+    livello: info | avviso | urgente | ok."""
+    img, d = _canvas(FULL_W, FULL_H)
+    d.rectangle([0, 0, FULL_W * S, 40 * S], fill=URGENZA.get(livello, YELLOW))
+    titolo = (titolo or "Avviso")[:30]
+    d.text((FULL_W / 2 * S, 20 * S), titolo, font=_font(font, _testo_largo(d, titolo, font, 18, FULL_W - 16)),
+           fill=INK if livello in ("avviso", None) or livello not in URGENZA else WHITE, anchor="mm")
+    spazio = FULL_H - 56
+    for px in (20, 18, 16, 14, 12):
+        righe = _righe(d, testo or "", font, px, FULL_W - 20, massimo=99)
+        if len(righe) * (px + 6) <= spazio:
+            break
+    righe = _righe(d, testo or "", font, px, FULL_W - 20, massimo=max(1, int(spazio / (px + 6))))
+    y = 40 + (FULL_H - 40 - len(righe) * (px + 6)) / 2
+    for r in righe:
+        d.text((FULL_W / 2 * S, y * S), r, font=_font(font, px), fill=INK, anchor="mt")
+        y += px + 6
     return _done(img)

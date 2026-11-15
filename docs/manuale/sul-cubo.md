@@ -40,7 +40,15 @@ Con `screens: true` (predefinito), immagini che occupano tutto il cubo:
 - **batterie** (3.4): un anello per dispositivo (telefoni, sensori, citofono), solo quando una è
   sotto `battery_screen_below`;
 - **termostato** (3.4): temperatura di adesso e voluta, se scalda, le altre stanze, solo finché il
-  termostato è acceso.
+  termostato è acceso;
+- **orologio** (3.5): l'ora, il meteo fuori e il prossimo appuntamento ("domani alle 18");
+- **casa a icone** (3.5): luci accese, clima acceso, temperatura e umidità, porte aperte, fuori;
+- **in riproduzione** (3.5): copertina, titolo, artista e avanzamento mentre un `media_player` suona;
+- **porte e finestre** (3.5): solo quando una è aperta; anche i sensori di movimento;
+- **attività** (3.5): i numeri di oggi da `activity_entities` (per esempio i passi).
+
+Un'automazione di Home Assistant può mettere un avviso urgente a tutto cubo con `coinquilino_say` e
+`urgent` (vedi Home Assistant).
 
 Le schermate stanno nella stessa cornice bianca delle foto di famiglia.
 
@@ -69,7 +77,8 @@ cambiano con `chatter_day_max` (nomi del log: `news.headline`, `weather.now`…)
 Manda una foto al bot di Telegram: compare subito, quasi a tutto schermo nella cornice della
 lavagnetta, poi torna a giro ogni `photo_every_minutes` (30) per `photo_seconds` (40), ogni foto al
 massimo `photo_day_max` (3) volte al giorno, mai di notte. Se ne tengono fino a `photo_max` (50): le
-più vecchie si tolgono.
+più vecchie si tolgono. Con meno di `photo_ask_below` (5) foto le chiede su Telegram, al massimo
+ogni `photo_ask_days` (14) giorni.
 
 - L'album è `/media/coinquilino` (`photo_dir`): si gestisce dal pannello *Media* di Home Assistant.
 - Dalla plancia: ne scegli una (`photo_select`), la mostri subito, la togli.

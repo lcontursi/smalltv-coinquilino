@@ -33,6 +33,8 @@ I campi sono tutti facoltativi:
 | `repeat_hours` | numero | …prima di tante ore (predefinito 12) |
 | `remember` | frase | un fatto per la memoria di oggi, senza dirlo |
 | `quiet_seconds` | secondi | niente chiacchiere per un po' (per esempio, ha appena suonato il citofono) |
+| `urgent` | `info` · `avviso` · `urgente` · `ok` · true | (3.5) a tutto cubo, con una fascia colorata; `true` = `urgente` |
+| `title`, `seconds` | testo, secondi | il titolo della fascia e quanto resta (predefinito `show_minutes`) |
 | `expect_arrival` | true | qualcuno sta entrando: il saluto parte subito |
 | `mood`, `minutes` | umore, minuti | un umore per qualche minuto (per esempio `welcome`) |
 | `cube` (o `instance`) | nome dell'istanza | solo quel cubo, se ne hai più d'uno |

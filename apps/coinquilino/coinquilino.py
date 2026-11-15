@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.4.0"
+VERSION = "3.5.0"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -274,6 +274,8 @@ TOPIC = {"vetrina": "me.showcase",
     "radar": "planes.radar", "fatto": "me.fact", "galleria": "me.gallery", "api": "api.usage",
     "schermo_meteo": "screen.weather", "schermo_casa": "screen.home", "schermo_consumi": "screen.power",
     "schermo_batterie": "screen.battery", "schermo_termostato": "screen.thermostat",
+    "schermo_orologio": "screen.clock", "schermo_icone": "screen.icons", "schermo_musica": "screen.music",
+    "schermo_porte": "screen.doors", "schermo_attivita": "screen.activity", "urgent": "home.urgent",
     "room_change": "home.temperature", "agenda": "home.agenda",
 }
 KIND_OF = {v: k for k, v in TOPIC.items()}          # nome pubblico -> interno (voice_kinds)
@@ -286,14 +288,18 @@ CHATTER_EVERY = {"giorno": 240, "sole": 120, "claude": 90, "grafico_claude": 180
                  "grafico_meteo": 60, "meteo": 30, "casa": 30, "chi": 45, "notizia": 10,
                  "aerei": 60, "radar": 90, "fatto": 180, "galleria": 360, "api": 240,
                  "schermo_meteo": 120, "schermo_casa": 90, "schermo_consumi": 120, "vetrina": 5,
-                 "agenda": 120, "schermo_batterie": 120, "schermo_termostato": 90}
+                 "agenda": 120, "schermo_batterie": 120, "schermo_termostato": 90,
+                 "schermo_orologio": 90, "schermo_icone": 90, "schermo_musica": 20, "schermo_porte": 60,
+                 "schermo_attivita": 180}
 
 # 2.0: quante volte al giorno al massimo, per tipo di chiacchiera (chatter_day_max le cambia).
 # Nel log del 04-05/11 le chiacchiere erano quasi tutte notizie, meteo e "chi c'e' in casa"
 CHATTER_DAY = {"notizia": 5, "meteo": 4, "previsioni": 3, "casa": 3, "chi": 2, "sole": 1, "giorno": 1,
                "claude": 2, "grafico_claude": 1, "aerei": 2, "radar": 1, "fatto": 2, "galleria": 1,
                "api": 1, "grafico_meteo": 3, "schermo_meteo": 3, "schermo_casa": 3, "schermo_consumi": 3,
-               "vetrina": 99, "agenda": 4, "schermo_batterie": 3, "schermo_termostato": 3}
+               "vetrina": 99, "agenda": 4, "schermo_batterie": 3, "schermo_termostato": 3,
+               "schermo_orologio": 4, "schermo_icone": 3, "schermo_musica": 6, "schermo_porte": 4,
+               "schermo_attivita": 2}
 
 # 2.1 (BM, BO, BT, BW): argomenti gia' detti oggi, riconosciuti dal testo della frase. Il regista
 # li riceve; avvisi e chiacchiere che li ripeterebbero tacciono
@@ -304,7 +310,8 @@ TEMI = [("meteo di domani", r"\bdomani\b"),
         ("aerei", r"\baere[io]\b|boeing|airbus")]
 METEO_WORDS = r"grad|piogg|massim|minim|sole|nuvol|vento|freddo|caldo"
 # 2.1 (BS): cosa torna nella vetrina del giorno (si ricalcola al momento, con i dati di adesso)
-VETRINA_KINDS = {"grafico_meteo", "grafico_claude", "schermo_meteo", "schermo_casa", "schermo_consumi"}
+VETRINA_KINDS = {"grafico_meteo", "grafico_claude", "schermo_meteo", "schermo_casa", "schermo_consumi",
+                 "schermo_orologio", "schermo_icone"}
 
 # Cose che chiedono una frase "inventata": solo queste vanno a Claude. Notizie e meteo
 # arrivano gia' scritte dal web: si mostrano cosi' come sono, senza spendere chiamate.
@@ -532,6 +539,19 @@ class Coinquilino(hass.Hass):
         self.battery_ents = [be] if isinstance(be, str) else list(be)
         self.battery_below = float(a.get("battery_screen_below", 30))   # 0: sempre, a turno
         self.thermostat = a.get("thermostat")                 # senza: il primo climate con la temperatura
+        # 3.5: altre schermate (DA, CV)
+        mp = a.get("media_players") or []                     # senza: tutti i media_player
+        self.media_players = [mp] if isinstance(mp, str) else list(mp)
+        de = a.get("door_entities") or []                     # senza: binary_sensor porta/finestra/movimento
+        self.door_ents = [de] if isinstance(de, str) else list(de)
+        ae = a.get("activity_entities") or []                 # es. i passi del telefono: solo se indicati
+        self.activity_ents = [ae] if isinstance(ae, str) else list(ae)
+        url = a.get("ha_url") or str(a.get("ha_mcp_url") or "").split("/api/")[0]
+        self.ha_url = url.rstrip("/") or None                 # per le copertine (entity_picture relativo)
+        self._covers = {}                                     # url -> immagine (o None mentre scarica)
+        # 3.5 (CZ): con l'album quasi vuoto Alessio chiede le foto su Telegram
+        self.photo_ask_below = int(a.get("photo_ask_below", 5))     # 0: non chiederle mai
+        self.photo_ask_days = float(a.get("photo_ask_days", 14))
         # 2.2: le regole sulla casa (luci, clima, citofono, batterie, aggiornamenti) stanno in Home
         # Assistant (blueprint in blueprints/); qui arrivano con l'evento coinquilino_say
         self.quiet_until = 0.0              # quiet_seconds dell'evento: niente chiacchiere (citofono)
@@ -1353,6 +1373,7 @@ class Coinquilino(hass.Hass):
         if self._is_night():
             return
         self._wake_up()
+        self._photo_ask()
         now = datetime.now()
         today = now.date().isoformat()
         fk, fdesc = self._festa()
@@ -2370,7 +2391,8 @@ class Coinquilino(hass.Hass):
             kinds += ["grafico_meteo", "grafico_claude", "radar", "galleria"]
         if self.screens_on:
             kinds += ["schermo_meteo", "schermo_casa", "schermo_consumi", "schermo_batterie",
-                      "schermo_termostato"]
+                      "schermo_termostato", "schermo_orologio", "schermo_icone", "schermo_musica",
+                      "schermo_porte", "schermo_attivita"]
         for _ in range(len(kinds)):
             if not self.filler_order:
                 self.filler_order = random.sample(kinds, len(kinds))
@@ -2408,6 +2430,8 @@ class Coinquilino(hass.Hass):
                     self.msg["card"] = card
                 if screen is not None:
                     self.msg["screen"] = screen
+                    if kind in self.REFRESH_KINDS:
+                        self.msg["refresh"] = kind
                 self.last_filler = time.time()
                 self._L("SAY", "free", "chatter", TOPIC.get(kind, kind), text)
                 self._last(kind, text)
@@ -3024,6 +3048,230 @@ class Coinquilino(hass.Hass):
         text += {"heating": ", sta riscaldando.", "cooling": ", sta raffreddando."}.get(azione, ".")
         return text, img
 
+    # ------------------------------------------------------------------ altre schermate (3.5, DA e CV)
+    REFRESH_KINDS = ("schermo_orologio", "schermo_musica")   # si ridisegnano ogni minuto mentre sono su
+
+    @staticmethod
+    def _cielo_di(cond):
+        """Condizione di HA -> icona di grafici.icona."""
+        c = str(cond or "")
+        if c in ("sunny", "clear-night"):
+            return "sole"
+        if c == "snowy" or c == "snowy-rainy":
+            return "neve"
+        if c.startswith("lightning"):
+            return "temporale"
+        if c == "fog":
+            return "nebbia"
+        return "pioggia" if c in RAINY else "nuvole"
+
+    @staticmethod
+    def _alle(t):
+        return f"alle {t:%H}" if t.minute == 0 else f"alle {t:%H:%M}"
+
+    @classmethod
+    def _quando(cls, start, all_day, now=None):
+        """Date "umane" (13/11): "fra 20 minuti", "stasera alle 20", "domani alle 18", "sabato",
+        "fra 9 giorni"; mai "15/11 18:00"."""
+        now = now or datetime.now()
+        giorni = (start.date() - now.date()).days
+        if giorni <= 0:
+            if all_day:
+                return "oggi"
+            mins = round((start - now).total_seconds() / 60)
+            if 0 <= mins < 60:
+                return f"fra {max(1, mins)} minut{'o' if mins <= 1 else 'i'}"
+            return ("stasera " if start.hour >= 18 else "oggi ") + cls._alle(start)
+        if giorni == 1:
+            return "domani" + ("" if all_day else " " + cls._alle(start))
+        if giorni < 7:
+            return meteo.GIORNI[start.weekday()] + ("" if all_day else " " + cls._alle(start))
+        return f"fra {giorni} giorni"
+
+    def _prossimo_appuntamento(self):
+        """(quando, cosa) del primo appuntamento che non e' ancora passato, o None."""
+        now = datetime.now()
+        prossimi = []
+        for x in self.cal_events:
+            start, all_day = self._when(x.get("start"))
+            if start and (start >= now or (all_day and start.date() == now.date())):
+                prossimi.append((start, all_day, x["summary"]))
+        if not prossimi:
+            return None
+        start, all_day, cosa = min(prossimi, key=lambda p: p[0])
+        return self._quando(start, all_day, now), cosa
+
+    def _f_schermo_orologio(self):
+        now = datetime.now()
+        cond, temp = self._weather_now()
+        esterno = (self._cielo_di(cond), temp) if cond else None
+        app = self._prossimo_appuntamento() if self.calendars else None
+        data = f"{meteo.GIORNI[now.weekday()]} {now.day} {alessio.MESI[now.month - 1]}"
+        img = grafici.schermata_orologio(f"{now:%H:%M}", data, esterno, app, self.font_path)
+        if app:
+            return f"Sono le {now:%H:%M}. Prossimo appuntamento {app[0]}: {app[1]}.", img
+        return f"Sono le {now:%H:%M}" + (f", fuori {gradi(temp)}." if temp is not None else "."), img
+
+    def _f_schermo_icone(self):
+        luci = sum(1 for s in (self.get_state("light") or {}).values() if s.get("state") == "on")
+        voci = [("luce", luci, "luce accesa" if luci == 1 else "luci accese", luci > 0)]
+        cl = self.get_state("climate") or {}
+        if cl:
+            accesi = sum(1 for s in cl.values() if s.get("state") not in ("off", "unavailable", "unknown", None))
+            voci.append(("clima", accesi, "clima acceso" if accesi == 1 else "clima accesi", accesi > 0))
+        temps = [v for v in (self._room_temp(e) for e in self._room_ents()) if v is not None]
+        if temps:
+            voci.append(("termometro", f"{sum(temps) / len(temps):.1f}°".replace(".", ","), "in casa", False))
+        th = self._thermostat_entity()
+        umid = self._num(th, "current_humidity") if th else None
+        if umid is not None:
+            voci.append(("goccia", f"{umid:.0f}%", "umidità", False))
+        porte = [v for v in self._porte() if v[2] != "motion"]
+        if porte:
+            aperte = sum(1 for v in porte if v[1])
+            voci.append(("porta", aperte, "aperta" if aperte == 1 else "aperte", aperte > 0))
+        _, fuori = self._weather_now()
+        if fuori is not None:
+            voci.append(("termometro", f"{fuori:.0f}°", "fuori", False))
+        if len(voci) < 3:
+            return None                                   # una casa senza dati: meglio un'altra cosa
+        img = grafici.schermata_icone(voci, self.font_path)
+        text = "Nessuna luce accesa" if not luci else f"{luci} luc{'e accesa' if luci == 1 else 'i accese'}"
+        if temps:
+            text += f", in casa {gradi(sum(temps) / len(temps))}"
+        return text + ".", img
+
+    def _media_ora(self):
+        """Il media_player che sta suonando: (entita', attributi) o (None, None)."""
+        ents = self.media_players or sorted((self.get_state("media_player") or {}).keys())
+        for e in ents:
+            s = self.get_state(e, attribute="all") or {}
+            at = s.get("attributes") or {}
+            if s.get("state") == "playing" and at.get("media_title"):
+                return e, at
+        return None, None
+
+    def _copertina(self, pic):
+        """La copertina, scaricata in un thread (le attese non vanno nel loop di AppDaemon): la prima
+        volta None, poi l'immagine. Ne tiene al massimo 5."""
+        if not pic:
+            return None
+        url = pic if pic.startswith("http") else (self.ha_url + pic if self.ha_url else None)
+        if not url:
+            return None
+        if url in self._covers:
+            return self._covers[url]
+        if len(self._covers) >= 5:
+            self._covers.pop(next(iter(self._covers)))
+        self._covers[url] = None
+
+        def scarica():
+            try:
+                r = requests.get(url, timeout=(3, 8))
+                r.raise_for_status()
+                self._covers[url] = Image.open(io.BytesIO(r.content)).convert("RGB")
+            except Exception as e:
+                self.log(f"copertina non scaricata: {e}", level="DEBUG")
+        threading.Thread(target=scarica, daemon=True).start()
+        return None
+
+    def _f_schermo_musica(self):
+        e, at = self._media_ora()
+        if not e:
+            return None
+        pos, dur = at.get("media_position"), at.get("media_duration")
+        try:
+            pos, dur = float(pos), float(dur)
+            agg = at.get("media_position_updated_at")
+            if agg:
+                d = datetime.fromisoformat(str(agg).replace("Z", "+00:00"))
+                pos += max(0.0, time.time() - d.timestamp())
+        except (TypeError, ValueError):
+            pos = dur = None
+        img = grafici.schermata_musica(self._copertina(at.get("entity_picture")), at.get("media_title"),
+                                       at.get("media_artist"), at.get("media_album_name"), pos, dur, False,
+                                       self.font_path)
+        chi = f" di {at['media_artist']}" if at.get("media_artist") else ""
+        return f"In riproduzione: {at['media_title']}{chi}.", img
+
+    def _porte(self):
+        """[(nome, aperta_o_movimento, tipo)] dei sensori di porte, finestre e movimento."""
+        tipi = {"door": "door", "garage_door": "door", "opening": "door", "window": "window", "motion": "motion",
+                "occupancy": "motion"}
+        out = []
+        tutte = self.get_state("binary_sensor") or {}
+        ents = self.door_ents or sorted(tutte)
+        for e in ents:
+            s = tutte.get(e) or {}
+            at = s.get("attributes") or {}
+            tipo = tipi.get(at.get("device_class"))
+            if tipo is None and self.door_ents:
+                tipo = "door"                             # indicata a mano: e' una porta
+            if tipo is None or s.get("state") not in ("on", "off"):
+                continue
+            out.append((at.get("friendly_name") or e.split(".")[-1].replace("_", " "), s["state"] == "on", tipo))
+        return out
+
+    def _f_schermo_porte(self):
+        voci = self._porte()
+        aperte = [n for n, a, t in voci if a and t != "motion"]
+        if not aperte:
+            return None                                   # tutto chiuso: la schermata non serve
+        img = grafici.schermata_porte(voci, self.font_path)
+        return ("Aperta: " if len(aperte) == 1 else "Aperte: ") + ", ".join(aperte[:3]) + ".", img
+
+    def _f_schermo_attivita(self):
+        voci = []
+        for e in self.activity_ents:
+            v = self._num(e)
+            if v is None:
+                continue
+            unita = str(self.get_state(e, attribute="unit_of_measurement") or "")
+            unita = {"steps": "passi", "bpm": "battiti", "km": "km", "kcal": "kcal"}.get(unita.lower(), unita)
+            nome = re.sub(r"(?i)\b(steps|passi|heart rate|battito|di)\b", " ",
+                          self.get_state(e, attribute="friendly_name") or e.split(".")[-1].replace("_", " "))
+            nome = " ".join(nome.split()) or e
+            voci.append((f"{v:,.0f}".replace(",", "."), f"{unita} {nome}".strip(), nome, unita))
+        if not voci:
+            return None
+        img = grafici.schermata_numeri("Attività di oggi", [(t, et) for t, et, _, _ in voci], self.font_path)
+        return "Attività di oggi: " + ", ".join(f"{n} {t} {u}".strip() for t, _, n, u in voci[:3]) + ".", img
+
+    def _refresh_screen(self, m):
+        """Orologio e musica si ridisegnano ogni minuto mentre sono sullo schermo; se la musica si
+        ferma, la schermata se ne va."""
+        minuto = datetime.now().strftime("%H:%M")
+        if m.get("refresh") not in self.REFRESH_KINDS or m.get("refresh_at") == minuto:
+            return
+        m["refresh_at"] = minuto
+        if time.time() - m["t0"] < 50:
+            return                                        # appena disegnata
+        res = getattr(self, "_f_" + m["refresh"])()
+        if not res:
+            self.msg = None
+            return
+        m["screen"], m["screen_frame"] = res[1], None
+
+    # ------------------------------------------------------------------ album quasi vuoto (3.5, CZ)
+    def _photo_ask(self):
+        """Con meno di photo_ask_below foto nell'album, una volta ogni photo_ask_days giorni Alessio
+        chiede su Telegram di mandargliene qualcuna (le foto mandate al bot finiscono nell'album)."""
+        if not (self.photos_on and self.album and self.photo_ask_below and self.tg_chats):
+            return
+        if datetime.now().hour < 10:
+            return
+        n = len(self.album.foto())
+        last = float(self.mem.get("foto_chieste") or 0)
+        if n >= self.photo_ask_below or time.time() - last < self.photo_ask_days * 86400:
+            return
+        text = ("Non ho ancora nessuna foto da mostrare sul cubo: mandamene qualcuna qui, le metto io in giro."
+                if n == 0 else f"Ho solo {n} foto da mostrare sul cubo: "
+                "mandamene qualcuna nuova qui, anche dai preferiti del telefono.")
+        if self._notify(text, kind="foto"):
+            self.mem["foto_chieste"] = time.time()
+            self._mem_save()
+            self._L("SAY", "free", "event", "me.photo_ask", text)
+
     def _energy_keep(self):
         """L'energia di oggi, per il confronto di domani (il sensore riparte da zero a mezzanotte)."""
         if not self.energy_sensor:
@@ -3120,7 +3368,9 @@ class Coinquilino(hass.Hass):
         night: say | defer | skip (di notte: dirlo, al risveglio, niente);
         key e repeat_hours (la stessa cosa non torna prima di N ore, 12 se non indicato);
         remember (un fatto da ricordare, senza dirlo); quiet_seconds (sta zitto per un po');
-        expect_arrival (qualcuno sta entrando: il saluto parte subito); cube / instance."""
+        expect_arrival (qualcuno sta entrando: il saluto parte subito); cube / instance.
+        3.5 (CX) urgent: true (o il livello: info | avviso | urgente | ok) mostra la frase a tutto cubo,
+        con title e una fascia colorata, per seconds secondi (show_minutes se non indicato)."""
         target = data.get("cube") or data.get("instance")
         if target and target != self.inst:
             return                                  # e' per un altro cubo
@@ -3170,12 +3420,32 @@ class Coinquilino(hass.Hass):
         if away in ("notify", "skip"):
             self._notify(text, kind="say")
             return
-        if data.get("wait"):
+        if data.get("urgent"):
+            self._urgent(text, data)
+        elif data.get("wait"):
             self.add_fact("action", text=text, key=key or text)
         else:
             self._say_now(text, "say", cost=cost)
         if data.get("telegram"):                     # 2.0: anche su Telegram, con il bot di Alessio
             self._notify(text, kind="say")
+
+    def _urgent(self, text, data):
+        """Notifica a tutto cubo (CX): interrompe quello che c'e' (foto compresa), resta per il tempo
+        chiesto, si dice anche a voce. Notte e casa vuota seguono le regole dell'evento."""
+        livello = data.get("urgent")
+        livello = livello if livello in grafici.URGENZA else "urgente"
+        img = grafici.schermata_avviso(clean(str(data.get("title") or ""))[:30] or None, text, livello,
+                                       self.font_path)
+        self.photo = None
+        self._say_now(text, "say")
+        self.msg["screen"] = img
+        try:
+            secs = float(data.get("seconds") or 0)
+        except (TypeError, ValueError):
+            secs = 0
+        if secs > 0:
+            self.msg["life"] = secs
+        self._L("SAY", "free", "event", TOPIC["urgent"], f"{livello}: {text[:80]}")
 
     # ------------------------------------------------------------------ agenda di HA (2.2, CD)
     def _response(self, service, entity, **data):
@@ -3223,7 +3493,7 @@ class Coinquilino(hass.Hass):
             for ent in self.calendars:
                 try:
                     got = self._response("calendar/get_events", ent, start_date_time=now.isoformat(timespec="seconds"),
-                                         duration={"hours": 36})
+                                         duration={"hours": 24 * 7})   # 3.5: la settimana
                 except Exception as e:
                     self.log(f"calendario {ent}: {e}", level="WARNING")
                     continue
@@ -3290,6 +3560,9 @@ class Coinquilino(hass.Hass):
             return "Oggi in agenda: " + "; ".join(app[:3]) + "."
         if todo:
             return "Nella lista delle cose da fare: " + "; ".join(todo[:3]) + "."
+        prossimo = self._prossimo_appuntamento()          # 3.5: anche i giorni dopo, con date umane
+        if prossimo:
+            return f"Prossimo appuntamento {prossimo[0]}: {prossimo[1]}."
         return None
 
     def _todo_add(self, cosa, quando):
@@ -4465,6 +4738,8 @@ class Coinquilino(hass.Hass):
         non arriva altro: 40 secondi non si vedevano (11/11). Frasi corte e lunghe: show_minutes; le
         pagine continuano a girare (la bocca si muove solo nei primi due giri). Non e' una TV: chi
         passa dopo deve poter leggere tutto (12/11, prima una frase lunga spariva dopo un minuto)."""
+        if m.get("life"):
+            return m["life"]                               # 3.5 (CX): la durata chiesta dall'avviso
         if m.get("card") is not None or m.get("screen") is not None:
             return max(self.card_secs, self.show_minutes * 60)
         return max(self.show_minutes * 60, len(m["pages"]) * PAGE_SECS * 2 + 30)
@@ -4565,6 +4840,8 @@ class Coinquilino(hass.Hass):
             self.frame = (self.frame + 1) % 252
             festa = self._festa()[0]
             plane = time.time() < self.plane_until
+            if self.msg and self.msg.get("refresh"):
+                self._refresh_screen(self.msg)          # 3.5: orologio e musica, ogni minuto
             m = self.msg
             ph = self.photo
             if ph and time.time() >= ph["until"]:

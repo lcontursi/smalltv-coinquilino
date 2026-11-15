@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.5.0
+
+- **Five more full-cube screens**, in turn with the others:
+  - **Clock**: the time, the date, the weather outside and the next appointment from the calendars,
+    redrawn every minute while it is up.
+  - **House as icons**: lights on, climate on, indoor temperature and humidity, open doors, outside.
+  - **Now playing**: cover, title, artist, album and progress while a `media_player` plays
+    (`media_players`; covers through `ha_url`, or Home Assistant's address taken from `ha_mcp_url`,
+    downloaded in a thread). It goes away when the music stops.
+  - **Doors and windows**: only when one is open (`door_entities`, or every door/window/opening/motion
+    `binary_sensor`).
+  - **Activity**: today's numbers from `activity_entities` (for example phone steps).
+- **Urgent notices on the whole cube**: `coinquilino_say` with `urgent` (`info`, `avviso`, `urgente`,
+  `ok`, or `true`), `title` and `seconds` shows the text with a coloured band, over a photo too.
+- **Human dates for appointments**: calendars are read for the whole week, and the agenda line and the
+  clock say "domani alle 18", "sabato", "fra 3 giorni" instead of a date.
+- **Asks for photos**: with fewer than `photo_ask_below` (5) photos in the album, Alessio asks on
+  Telegram for some, at most every `photo_ask_days` (14) days.
+
 ## 3.4.0
 
 - **Two new full-cube screens that appear only when they matter.**

@@ -51,6 +51,10 @@ The texts are in Italian.
   power now and today's energy against yesterday's. Two more appear only when they matter: the
   **batteries** (rings, when one is below `battery_screen_below`, 30% by default) and the
   **thermostat** (current and target temperature, heating or not, the other rooms) while it is on.
+  Also: a **clock** with the weather outside and the next appointment, the **house as icons** (lights,
+  climate, temperature, humidity, doors), **now playing** (cover, title, artist, progress) while a
+  `media_player` plays, **doors and windows** when one is open, and today's **activity** (e.g. steps,
+  `activity_entities`).
   Screens sit in the same white frame as the photos.
 - **Weather that compares** (Open-Meteo, no key) — "domani 5 gradi in meno", "dopo giorni asciutti,
   pioggia giovedì"; the hourly chart only when rain or gusts are due; the morning greeting says
@@ -208,6 +212,7 @@ Everything Home Assistant wants the character to say goes through the `coinquili
 | `key`, `repeat_hours` | the same thing does not come back before N hours (12) |
 | `remember` | a fact to remember, without saying it |
 | `quiet_seconds` | stays quiet for a while (e.g. when the doorbell rings) |
+| `urgent`, `title`, `seconds` | (3.5) shown on the whole cube with a coloured band (`info`, `avviso`, `urgente`, `ok`; `true` = `urgente`) for N seconds |
 | `expect_arrival` | someone is coming in: the greeting starts at once |
 | `mood`, `minutes` | a temporary mood |
 | `cube` | only for that instance |

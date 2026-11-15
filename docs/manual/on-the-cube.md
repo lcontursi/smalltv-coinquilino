@@ -40,7 +40,15 @@ With `screens: true` (default), whole-cube images:
 - **batteries** (3.4): one ring per device (phones, sensors, doorbell), only when one is below
   `battery_screen_below`;
 - **thermostat** (3.4): current and target temperature, heating or not, the other rooms, only while
-  the thermostat is on.
+  the thermostat is on;
+- **clock** (3.5): the time, the weather outside and the next appointment ("domani alle 18");
+- **house as icons** (3.5): lights on, climate on, temperature and humidity, open doors, outside;
+- **now playing** (3.5): cover, title, artist and progress while a `media_player` plays;
+- **doors and windows** (3.5): only when one is open; motion sensors too;
+- **activity** (3.5): today's numbers from `activity_entities` (e.g. steps).
+
+A Home Assistant automation can put an urgent notice on the whole cube with `coinquilino_say` and
+`urgent` (see Home Assistant).
 
 Screens sit in the same white frame as the family photos.
 
@@ -70,7 +78,8 @@ say; the same identical sentence doesn't come back within 3 hours. Change the ca
 Send a photo to the Telegram bot: it appears at once almost full screen in the blackboard's frame,
 then comes back in turn every `photo_every_minutes` (30) for `photo_seconds` (40), each photo at most
 `photo_day_max` (3) times a day, never at night. Up to `photo_max` (50) are kept, the oldest are
-removed.
+removed. With fewer than `photo_ask_below` (5) photos it asks for some on Telegram, at most
+every `photo_ask_days` (14) days.
 
 - The album is `/media/coinquilino` (`photo_dir`): manage it from Home Assistant's *Media* panel.
 - From the dashboard: choose one (`photo_select`), show it now, remove it.

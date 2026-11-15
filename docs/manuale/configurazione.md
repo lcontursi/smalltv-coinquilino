@@ -51,6 +51,11 @@ I nomi dei tipi di chiacchiera (`chatter_day_max`, `voice_kinds`) sono quelli de
 | `battery_entities` | tutti i sensori con `device_class: battery` | quali batterie mostra la schermata delle batterie |
 | `battery_screen_below` | 30 | la schermata delle batterie compare solo se una è sotto questa percentuale (0: sempre, a turno) |
 | `thermostat` | il primo `climate.*` con la temperatura | l'entità della schermata del termostato (solo se è acceso) |
+| `media_players` | tutti i `media_player.*` | dove guarda la schermata "in riproduzione" (solo mentre uno suona) |
+| `ha_url` | da `ha_mcp_url` | l'indirizzo di Home Assistant, per le copertine |
+| `door_entities` | `binary_sensor` porta/finestra/apertura/movimento | la schermata porte e finestre (solo se una è aperta) |
+| `activity_entities` | nessuna | la schermata dell'attività di oggi (per esempio i passi del telefono) |
+| `photo_ask_below`, `photo_ask_days` | 5, 14 | con meno foto le chiede su Telegram, al massimo ogni N giorni (0: mai) |
 | `room_change_degrees` | 1.5 | una stanza che cambia di tanto in un'ora: lo dice |
 
 ## Di cosa parla
