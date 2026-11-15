@@ -621,6 +621,11 @@ def _w_icona(d, c, tipo, acceso):
     elif tipo == "goccia":
         d.polygon([P(cx, cy - r), P(cx - r * .6, cy + r * .1), P(cx + r * .6, cy + r * .1)], fill=BLUE)
         d.ellipse([P(cx - r * .6, cy - r * .3), P(cx + r * .6, cy + r * .9)], fill=BLUE, outline=INK, width=lw)
+    elif tipo == "persona":
+        col = GREEN if acceso else GRID
+        d.ellipse([P(cx - r * .38, cy - r), P(cx + r * .38, cy - r * .24)], fill=col, outline=INK, width=lw)
+        d.chord([P(cx - r * .75, cy - r * .05), P(cx + r * .75, cy + r * 1.45)], 180, 360, fill=col, outline=INK,
+                width=lw)
     else:                                                   # porta (o finestra)
         d.rectangle([P(cx - r * .55, cy - r), P(cx + r * .55, cy + r)], fill=ORANGE if acceso else GRID,
                     outline=INK, width=lw)
@@ -629,7 +634,7 @@ def _w_icona(d, c, tipo, acceso):
 
 def schermata_icone(voci, font):
     """La casa a icone. voci: [(tipo, valore, etichetta, acceso)], al massimo 6;
-    tipo: luce | clima | termometro | goccia | porta."""
+    tipo: persona | luce | clima | termometro | goccia | porta."""
     img, d = _canvas(FULL_W, FULL_H)
     _titolo(d, "La casa", font)
     voci = voci[:6]

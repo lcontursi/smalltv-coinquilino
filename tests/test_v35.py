@@ -204,3 +204,20 @@ def test_preview_saves_a_frame_held_back_by_the_30_seconds(make_app, cube, tmp_p
     app._save_preview(app._preview_wait)
     assert app._preview_wait is None
     assert grafici.Image.open(tmp_path / "p.png").getpixel((5, 5)) == (0, 0, 255)
+
+
+# ------------------------------------------------------------------ 3.5.2: casa a icone sensata
+def test_icons_only_what_makes_sense_here(make_app, cube):
+    ir = {"state": "cool", "attributes": {"friendly_name": "Condizionatore", "current_temperature": 24}}
+    states = dict(STATES, **{"climate.ir_1": ir, "climate.ir_2": dict(ir, state="auto"),
+                             "light.a": {"state": "on", "attributes": {}},
+                             "binary_sensor.finestra": porta("Finestra", "off", "window")})
+    app = make_app(dict(DAY, host=cube.host), states=states)
+    _, img = app._f_schermo_icone()
+    tipi = [v[0] for v in app._icone_voci()]
+    assert "clima" not in tipi                            # i telecomandi IR non sanno se e' acceso
+    assert "porta" not in tipi                            # tutto chiuso: "0 aperte" non serve
+    tado = {"state": "heat", "attributes": {"hvac_action": "heating", "current_temperature": 20}}
+    states2 = dict(states, **{"climate.tado": tado, "binary_sensor.finestra": porta("Finestra", "on", "window")})
+    voci = {v[0]: v for v in make_app(dict(DAY, host=cube.host), states=states2, name="due")._icone_voci()}
+    assert voci["clima"][1] == 1 and voci["porta"][1] == 1

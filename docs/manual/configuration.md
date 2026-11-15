@@ -49,7 +49,7 @@ The names used for chatter kinds (`chatter_day_max`, `voice_kinds`) are the ones
 | `power_sensor`, `energy_sensor` | none | W now, kWh since midnight, for the power screen |
 | `battery_entities` | all sensors with `device_class: battery` | which batteries the battery screen shows |
 | `battery_screen_below` | 30 | the battery screen appears only when one is below this percentage (0: always, in turn) |
-| `thermostat` | first `climate.*` with a temperature | the entity of the thermostat screen (shown only while it is on) |
+| `thermostat` | first `climate.*` that reports what it is doing (`hvac_action`) | the entity of the thermostat screen (shown only while it is on) |
 | `media_players` | all `media_player.*` | where the now-playing screen looks (only while one plays) |
 | `ha_url` | from `ha_mcp_url` | Home Assistant's address, for album covers |
 | `door_entities` | `binary_sensor` door/window/opening/motion | the doors-and-windows screen (only when one is open) |

@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.5.1"
+VERSION = "3.5.2"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -3029,7 +3029,7 @@ class Coinquilino(hass.Hass):
         cl = self.get_state("climate") or {}
         con_t = [e for e in sorted(cl) if self._num(e, "current_temperature") is not None]
         veri = [e for e in con_t if ((cl[e] or {}).get("attributes") or {}).get("hvac_action") is not None]
-        return (veri or con_t or [None])[0]
+        return (veri or [None])[0]       # 3.5.2: mai un condizionatore IR (sembrava sempre acceso)
 
     def _f_schermo_termostato(self):
         e = self._thermostat_entity()
@@ -3118,11 +3118,40 @@ class Coinquilino(hass.Hass):
         return f"Sono le {now:%H:%M}" + (f", fuori {gradi(temp)}." if temp is not None else "."), img
 
     def _f_schermo_icone(self):
-        luci = sum(1 for s in (self.get_state("light") or {}).values() if s.get("state") == "on")
-        voci = [("luce", luci, "luce accesa" if luci == 1 else "luci accese", luci > 0)]
-        cl = self.get_state("climate") or {}
+        voci, luci, temps, lights = self._icone()
+        if len(voci) < 3:
+            return None                                   # una casa senza dati: meglio un'altra cosa
+        img = grafici.schermata_icone(voci, self.font_path)
+        if lights:
+            text = "Nessuna luce accesa" if not luci else f"{luci} luc{'e accesa' if luci == 1 else 'i accese'}"
+        else:
+            text = "La casa"
+        if temps:
+            text += f", in casa {gradi(sum(temps) / len(temps))}"
+        return text + ".", img
+
+    def _icone_voci(self):
+        return self._icone()[0]
+
+    def _icone(self):
+        """3.5.2: solo le caselle che hanno senso in questa casa (15/11: "2 clima accesi" erano i
+        condizionatori a infrarossi, che ricordano solo l'ultimo comando; "0 aperte" erano sensori
+        che non sono porte)."""
+        voci = []
+        persone = self.get_state("person") or {}
+        if persone:
+            dentro = sum(1 for e, s in persone.items() if self._in_casa(e, s.get("state"))
+                         and (e in self.nicknames or e == self.owner_entity or not self.nicknames))
+            voci.append(("persona", dentro, "in casa" if dentro else "casa vuota", dentro > 0))
+        lights = self.get_state("light") or {}
+        luci = sum(1 for s in lights.values() if s.get("state") == "on")
+        if lights:
+            voci.append(("luce", luci, "luce accesa" if luci == 1 else "luci accese", luci > 0))
+        # clima: solo chi dice cosa sta facendo (hvac_action); un telecomando IR non lo sa
+        cl = {e: s for e, s in (self.get_state("climate") or {}).items()
+              if ((s or {}).get("attributes") or {}).get("hvac_action") is not None}
         if cl:
-            accesi = sum(1 for s in cl.values() if s.get("state") not in ("off", "unavailable", "unknown", None))
+            accesi = sum(1 for s in cl.values() if s["attributes"]["hvac_action"] not in ("off", "idle"))
             voci.append(("clima", accesi, "clima acceso" if accesi == 1 else "clima accesi", accesi > 0))
         temps = [v for v in (self._room_temp(e) for e in self._room_ents()) if v is not None]
         if temps:
@@ -3131,20 +3160,13 @@ class Coinquilino(hass.Hass):
         umid = self._num(th, "current_humidity") if th else None
         if umid is not None:
             voci.append(("goccia", f"{umid:.0f}%", "umidità", False))
-        porte = [v for v in self._porte() if v[2] != "motion"]
-        if porte:
-            aperte = sum(1 for v in porte if v[1])
-            voci.append(("porta", aperte, "aperta" if aperte == 1 else "aperte", aperte > 0))
+        aperte = sum(1 for v in self._porte() if v[2] != "motion" and v[1])
+        if aperte:                                            # "0 aperte" non dice niente
+            voci.append(("porta", aperte, "aperta" if aperte == 1 else "aperte", True))
         _, fuori = self._weather_now()
         if fuori is not None:
             voci.append(("termometro", f"{fuori:.0f}°", "fuori", False))
-        if len(voci) < 3:
-            return None                                   # una casa senza dati: meglio un'altra cosa
-        img = grafici.schermata_icone(voci, self.font_path)
-        text = "Nessuna luce accesa" if not luci else f"{luci} luc{'e accesa' if luci == 1 else 'i accese'}"
-        if temps:
-            text += f", in casa {gradi(sum(temps) / len(temps))}"
-        return text + ".", img
+        return voci[:6], luci, temps, lights
 
     def _media_ora(self):
         """Il media_player che sta suonando: (entita', attributi) o (None, None)."""

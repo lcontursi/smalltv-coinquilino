@@ -173,7 +173,7 @@ feeds:                                 # notizie: feed RSS, ognuno con la sua et
 # battery_entities:                  # 3.4: schermata delle batterie; senza, tutti i sensori con device_class battery
 #   - sensor.telefono_mario_battery_level
 # battery_screen_below: 30           # 3.4: compare solo se una batteria e' sotto questa percentuale (0: sempre, a turno)
-# thermostat: climate.soggiorno      # 3.4: schermata del termostato (solo se acceso); senza, il primo climate con la temperatura
+# thermostat: climate.soggiorno      # 3.4: schermata del termostato (solo se acceso); senza, il primo climate che dice cosa fa (hvac_action)
 # media_players:                     # 3.5: schermata "in riproduzione" (solo mentre suona); senza, tutti i media_player
 #   - media_player.cucina
 # ha_url: http://192.168.1.50:8123   # 3.5: per le copertine; senza, si ricava da ha_mcp_url

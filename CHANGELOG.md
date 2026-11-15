@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.5.2
+
+- **The house-as-icons screen shows only what makes sense in your home.** Infrared air conditioners
+  no longer count as "on" (they only remember the last command sent): climate is counted only for
+  devices that report what they are doing (`hvac_action`), and the tile disappears if there are
+  none. Doors appear only when one is open ("0 open" said nothing). A new tile shows how many people
+  are home.
+- The thermostat screen no longer falls back to an infrared air conditioner, which always looked on:
+  without `thermostat` it uses only a climate that reports `hvac_action`.
+- Now playing: a long artist or album no longer runs over the song title; the hourly chart no longer
+  draws two temperature labels on top of each other.
+
 ## 3.5.1
 
 - **Home Assistant screen**: CPU, memory and disk as rings (green, yellow over 60%, red over 85%) and

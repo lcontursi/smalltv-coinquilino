@@ -50,7 +50,7 @@ I nomi dei tipi di chiacchiera (`chatter_day_max`, `voice_kinds`) sono quelli de
 | `power_sensor`, `energy_sensor` | nessuno | W adesso, kWh da mezzanotte, per la schermata della corrente |
 | `battery_entities` | tutti i sensori con `device_class: battery` | quali batterie mostra la schermata delle batterie |
 | `battery_screen_below` | 30 | la schermata delle batterie compare solo se una è sotto questa percentuale (0: sempre, a turno) |
-| `thermostat` | il primo `climate.*` con la temperatura | l'entità della schermata del termostato (solo se è acceso) |
+| `thermostat` | il primo `climate.*` che dice cosa sta facendo (`hvac_action`) | l'entità della schermata del termostato (solo se è acceso) |
 | `media_players` | tutti i `media_player.*` | dove guarda la schermata "in riproduzione" (solo mentre uno suona) |
 | `ha_url` | da `ha_mcp_url` | l'indirizzo di Home Assistant, per le copertine |
 | `door_entities` | `binary_sensor` porta/finestra/apertura/movimento | la schermata porte e finestre (solo se una è aperta) |
