@@ -54,6 +54,7 @@ The names used for chatter kinds (`chatter_day_max`, `voice_kinds`) are the ones
 | `ha_url` | from `ha_mcp_url` | Home Assistant's address, for album covers |
 | `door_entities` | `binary_sensor` door/window/opening/motion | the doors-and-windows screen (only when one is open) |
 | `activity_entities` | none | today's activity screen (e.g. phone steps) |
+| `system_entities` | `sensor.system_monitor_*` in % | the Home Assistant screen (CPU, memory, disk) |
 | `photo_ask_below`, `photo_ask_days` | 5, 14 | with fewer photos it asks for some on Telegram, at most every N days (0: never) |
 | `room_change_degrees` | 1.5 | a room changing this much in an hour is worth saying |
 

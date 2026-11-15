@@ -167,3 +167,40 @@ def test_asks_for_photos_when_the_album_is_almost_empty(make_app, cube, monkeypa
 def test_new_kinds_have_topics():
     for k in ("schermo_orologio", "schermo_icone", "schermo_musica", "schermo_porte", "schermo_attivita"):
         assert k in coinquilino.TOPIC and k in coinquilino.CHATTER_EVERY and k in coinquilino.CHATTER_DAY
+
+
+# ------------------------------------------------------------------ 3.5.1: sistema e anteprima
+def pct(v, nome, unita="%"):
+    return {"state": str(v), "attributes": {"unit_of_measurement": unita, "friendly_name": nome}}
+
+
+def test_system_screen_from_system_monitor(make_app, cube):
+    states = dict(STATES, **{
+        "sensor.system_monitor_utilizzo_del_processore": pct(12.4, "Utilizzo del processore"),
+        "sensor.system_monitor_utilizzo_della_memoria": pct(1237, "Utilizzo della memoria", "MiB"),
+        "sensor.system_monitor_utilizzo_della_memoria_2": pct(63.3, "Utilizzo della memoria"),
+        "sensor.system_monitor_disk_usage": pct(22, "Disk usage /"),
+        "sensor.system_monitor_utilizzo_swap": pct(90, "Utilizzo Swap"),
+        "sensor.system_monitor_carico_5_min": pct(0.35, "Carico (5 min)", None)})
+    app = make_app(dict(DAY, host=cube.host), states=states)
+    voci, carico = app._sistema()
+    assert voci == [("CPU", 12.4), ("Memoria", 63.3), ("Disco", 22.0)] and carico == 0.35
+    text, img = app._f_schermo_sistema()
+    assert text == "Home Assistant: cpu al 12%, memoria al 63%, disco al 22%." and img.size == PIENO
+    assert grafici.colore_uso(30) == grafici.GREEN and grafici.colore_uso(90) == grafici.RED
+
+
+def test_system_screen_needs_the_sensors(make_app, cube):
+    assert make_app(dict(DAY, host=cube.host))._f_schermo_sistema() is None
+
+
+def test_preview_saves_a_frame_held_back_by_the_30_seconds(make_app, cube, tmp_path):
+    app = make_app(dict(DAY, host=cube.host, preview=str(tmp_path / "p.png")))
+    a, b = grafici.Image.new("RGB", (240, 200), "red"), grafici.Image.new("RGB", (240, 200), "blue")
+    app._save_preview(a)
+    app._save_preview(b)                                  # dentro i 30 secondi: tenuto da parte
+    assert app._preview_wait is b
+    app.preview_at -= 31
+    app._save_preview(app._preview_wait)
+    assert app._preview_wait is None
+    assert grafici.Image.open(tmp_path / "p.png").getpixel((5, 5)) == (0, 0, 255)

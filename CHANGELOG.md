@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.1
+
+- **Home Assistant screen**: CPU, memory and disk as rings (green, yellow over 60%, red over 85%) and
+  the 5-minute load, from the *System Monitor* integration. Without `system_entities` it uses the
+  `sensor.system_monitor_*` sensors in % (swap and pressure left out). These are the numbers of the
+  machine Home Assistant runs on (a virtual machine, if it runs in one).
+- The dashboard preview no longer stays on the previous image while a still screen is shown: a frame
+  skipped by the 30-second limit is saved as soon as the limit has passed.
+
 ## 3.5.0
 
 - **Five more full-cube screens**, in turn with the others:

@@ -55,7 +55,8 @@ pixel art.
   finché è acceso. In più: l'**orologio** con il meteo fuori e il prossimo appuntamento, la **casa a
   icone** (luci, clima, temperatura, umidità, porte), **in riproduzione** (copertina, titolo, artista,
   avanzamento) mentre un `media_player` suona, **porte e finestre** quando una è aperta e l'**attività**
-  di oggi (per esempio i passi, `activity_entities`). Le schermate stanno nella stessa cornice bianca
+  di oggi (per esempio i passi, `activity_entities`), e **Home Assistant** stesso (CPU,
+  memoria, disco, da System Monitor). Le schermate stanno nella stessa cornice bianca
   delle foto.
 - **Il meteo a confronto** (Open-Meteo, senza chiave) — "domani 5 gradi in meno", "dopo giorni
   asciutti, pioggia giovedì"; il grafico orario solo quando arrivano pioggia o raffiche; il saluto

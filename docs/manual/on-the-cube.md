@@ -45,7 +45,9 @@ With `screens: true` (default), whole-cube images:
 - **house as icons** (3.5): lights on, climate on, temperature and humidity, open doors, outside;
 - **now playing** (3.5): cover, title, artist and progress while a `media_player` plays;
 - **doors and windows** (3.5): only when one is open; motion sensors too;
-- **activity** (3.5): today's numbers from `activity_entities` (e.g. steps).
+- **activity** (3.5): today's numbers from `activity_entities` (e.g. steps);
+- **Home Assistant** (3.5.1): CPU, memory and disk as rings and the load, with the *System Monitor*
+  integration (in a virtual machine these are the VM's numbers, not the host's).
 
 A Home Assistant automation can put an urgent notice on the whole cube with `coinquilino_say` and
 `urgent` (see Home Assistant).

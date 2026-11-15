@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.5.0"
+VERSION = "3.5.1"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -276,6 +276,7 @@ TOPIC = {"vetrina": "me.showcase",
     "schermo_batterie": "screen.battery", "schermo_termostato": "screen.thermostat",
     "schermo_orologio": "screen.clock", "schermo_icone": "screen.icons", "schermo_musica": "screen.music",
     "schermo_porte": "screen.doors", "schermo_attivita": "screen.activity", "urgent": "home.urgent",
+    "schermo_sistema": "screen.system",
     "room_change": "home.temperature", "agenda": "home.agenda",
 }
 KIND_OF = {v: k for k, v in TOPIC.items()}          # nome pubblico -> interno (voice_kinds)
@@ -290,7 +291,7 @@ CHATTER_EVERY = {"giorno": 240, "sole": 120, "claude": 90, "grafico_claude": 180
                  "schermo_meteo": 120, "schermo_casa": 90, "schermo_consumi": 120, "vetrina": 5,
                  "agenda": 120, "schermo_batterie": 120, "schermo_termostato": 90,
                  "schermo_orologio": 90, "schermo_icone": 90, "schermo_musica": 20, "schermo_porte": 60,
-                 "schermo_attivita": 180}
+                 "schermo_attivita": 180, "schermo_sistema": 120}
 
 # 2.0: quante volte al giorno al massimo, per tipo di chiacchiera (chatter_day_max le cambia).
 # Nel log del 04-05/11 le chiacchiere erano quasi tutte notizie, meteo e "chi c'e' in casa"
@@ -299,7 +300,7 @@ CHATTER_DAY = {"notizia": 5, "meteo": 4, "previsioni": 3, "casa": 3, "chi": 2, "
                "api": 1, "grafico_meteo": 3, "schermo_meteo": 3, "schermo_casa": 3, "schermo_consumi": 3,
                "vetrina": 99, "agenda": 4, "schermo_batterie": 3, "schermo_termostato": 3,
                "schermo_orologio": 4, "schermo_icone": 3, "schermo_musica": 6, "schermo_porte": 4,
-               "schermo_attivita": 2}
+               "schermo_attivita": 2, "schermo_sistema": 2}
 
 # 2.1 (BM, BO, BT, BW): argomenti gia' detti oggi, riconosciuti dal testo della frase. Il regista
 # li riceve; avvisi e chiacchiere che li ripeterebbero tacciono
@@ -549,6 +550,9 @@ class Coinquilino(hass.Hass):
         url = a.get("ha_url") or str(a.get("ha_mcp_url") or "").split("/api/")[0]
         self.ha_url = url.rstrip("/") or None                 # per le copertine (entity_picture relativo)
         self._covers = {}                                     # url -> immagine (o None mentre scarica)
+        # 3.5.1: sistema di Home Assistant (System Monitor); senza, i sensor.system_monitor_* in %
+        se = a.get("system_entities") or []
+        self.system_ents = [se] if isinstance(se, str) else list(se)
         # 3.5 (CZ): con l'album quasi vuoto Alessio chiede le foto su Telegram
         self.photo_ask_below = int(a.get("photo_ask_below", 5))     # 0: non chiederle mai
         self.photo_ask_days = float(a.get("photo_ask_days", 14))
@@ -797,6 +801,7 @@ class Coinquilino(hass.Hass):
         self.state_sensor = a.get("state_sensor") or f"sensor.{base}_stato"
         self.preview = a.get("preview")                      # es. /homeassistant/www/coinquilino.png
         self.preview_at = 0.0
+        self._preview_wait = None           # 3.5.1: fotogramma da salvare appena passano i 30 secondi
         self.run_every(self._publish_state, "now+35", 300)
         self.run_every(self._bg, "now+10", 15 * 60, job="_weather")
         self.run_every(self._bg, "now+40", 60 * 60, job="_news")
@@ -2392,7 +2397,7 @@ class Coinquilino(hass.Hass):
         if self.screens_on:
             kinds += ["schermo_meteo", "schermo_casa", "schermo_consumi", "schermo_batterie",
                       "schermo_termostato", "schermo_orologio", "schermo_icone", "schermo_musica",
-                      "schermo_porte", "schermo_attivita"]
+                      "schermo_porte", "schermo_attivita", "schermo_sistema"]
         for _ in range(len(kinds)):
             if not self.filler_order:
                 self.filler_order = random.sample(kinds, len(kinds))
@@ -3236,6 +3241,37 @@ class Coinquilino(hass.Hass):
             return None
         img = grafici.schermata_numeri("Attività di oggi", [(t, et) for t, et, _, _ in voci], self.font_path)
         return "Attività di oggi: " + ", ".join(f"{n} {t} {u}".strip() for t, _, n, u in voci[:3]) + ".", img
+
+    SISTEMA = (("CPU", r"processor|cpu"), ("Memoria", r"memori|memory"), ("Disco", r"dis[ck]"))
+
+    def _sistema(self):
+        """[(nome, percento)] di CPU, memoria e disco, nell'ordine; e il carico a 5 minuti (o None).
+        Senza system_entities: i sensori di System Monitor in %, tranne swap e pressure."""
+        stati = self.get_state("sensor") or {}
+        if self.system_ents:
+            cand = list(self.system_ents)
+        else:
+            cand = [e for e, s in sorted(stati.items()) if e.startswith("sensor.system_monitor_")
+                    and ((s or {}).get("attributes") or {}).get("unit_of_measurement") == "%"
+                    and not re.search(r"swap|pressure|batter", e)]
+        voci = []
+        for nome, rx in self.SISTEMA:
+            for e in cand:
+                v = self._num(e)
+                if v is not None and re.search(rx, e + " " + str(self.get_state(e, attribute="friendly_name") or ""),
+                                               re.I):
+                    voci.append((nome, v))
+                    break
+        carico = next((self._num(e) for e in sorted(stati) if e.startswith("sensor.system_monitor_")
+                       and re.search(r"carico_5|load_5", e)), None)
+        return voci, carico
+
+    def _f_schermo_sistema(self):
+        voci, carico = self._sistema()
+        if len(voci) < 2:
+            return None
+        img = grafici.schermata_sistema(voci, carico, self.font_path)
+        return "Home Assistant: " + ", ".join(f"{n.lower()} al {v:.0f}%" for n, v in voci) + ".", img
 
     def _refresh_screen(self, m):
         """Orologio e musica si ridisegnano ogni minuto mentre sono sullo schermo; se la musica si
@@ -4610,9 +4646,15 @@ class Coinquilino(hass.Hass):
             self.log(f"sensore di stato: {e}", level="DEBUG")
 
     def _save_preview(self, img):
-        """Anteprima del cubo per la plancia (facoltativa: preview = percorso del PNG)."""
-        if not self.preview or time.time() - self.preview_at < 30:
+        """Anteprima del cubo per la plancia (facoltativa: preview = percorso del PNG). Al massimo ogni
+        30 secondi; 3.5.1: un fotogramma saltato si tiene e si salva appena si puo' (`_preview_flush`),
+        altrimenti una schermata ferma arrivata dentro i 30 secondi non finiva mai nell'anteprima."""
+        if not self.preview:
             return
+        if time.time() - self.preview_at < 30:
+            self._preview_wait = img
+            return
+        self._preview_wait = None
         self.preview_at = time.time()
         try:
             img.save(self.preview)
@@ -4877,6 +4919,8 @@ class Coinquilino(hass.Hass):
                 return                          # di notte un'immagine ferma basta
             box = (0, 0) + img.size if full else ImageChops.difference(img, self.screen).getbbox()
             if not box:
+                if getattr(self, "_preview_wait", None) is not None:
+                    self._save_preview(self._preview_wait)   # 3.5.1: il fotogramma rimasto indietro
                 return
             if self._send(img, box, self.photo_sat if ph else None, dim=not night_face):
                 self.auth_warned = False

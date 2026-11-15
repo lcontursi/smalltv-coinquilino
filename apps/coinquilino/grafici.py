@@ -740,3 +740,24 @@ def schermata_avviso(titolo, testo, livello, font):
         d.text((FULL_W / 2 * S, y * S), r, font=_font(font, px), fill=INK, anchor="mt")
         y += px + 6
     return _done(img)
+
+
+def colore_uso(p):
+    """Per CPU, memoria e disco (al contrario delle batterie): verde sotto il 60%, giallo sotto l'85%,
+    rosso sopra."""
+    return GREEN if p < 60 else YELLOW if p < 85 else RED
+
+
+def schermata_sistema(voci, carico, font):
+    """Sistema di Home Assistant (3.5.1): voci [(nome, percento)] (CPU, memoria, disco), un anello
+    ciascuna; carico: media del carico a 5 minuti o None."""
+    img, d = _canvas(FULL_W, FULL_H)
+    _titolo(d, "Home Assistant", font)
+    voci = voci[:4]
+    basso = 26 if carico is not None else 6
+    for c, (nome, p) in zip(griglia(len(voci), basso=basso), voci, strict=True):
+        w_anello(d, c, p, nome, font, colore=colore_uso(p))
+    if carico is not None:
+        d.text((FULL_W / 2 * S, (FULL_H - 6) * S), f"carico {carico:.2f}".replace(".", ","), font=_font(font, 14),
+               fill=GRIGIO, anchor="mb")
+    return _done(img)

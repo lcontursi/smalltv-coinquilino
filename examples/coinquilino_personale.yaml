@@ -181,6 +181,8 @@ feeds:                                 # notizie: feed RSS, ognuno con la sua et
 #   - binary_sensor.porta_ingresso   #      binary_sensor door/window/garage_door/opening/motion
 # activity_entities:                 # 3.5: schermata dell'attivita' di oggi (es. i passi); solo se indicati
 #   - sensor.telefono_mario_steps
+# system_entities:                   # 3.5.1: schermata di Home Assistant (CPU, memoria, disco in %); senza,
+#   - sensor.system_monitor_utilizzo_del_processore   # i sensor.system_monitor_* in % (System Monitor)
 # room_change_degrees: 1.5             # una stanza che cambia di tanto in un'ora: lo dice
 # chatter_day_max:                     # quante volte al giorno al massimo, per tipo (nomi del log)
 #   news.headline: 8

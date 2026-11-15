@@ -55,6 +55,7 @@ I nomi dei tipi di chiacchiera (`chatter_day_max`, `voice_kinds`) sono quelli de
 | `ha_url` | da `ha_mcp_url` | l'indirizzo di Home Assistant, per le copertine |
 | `door_entities` | `binary_sensor` porta/finestra/apertura/movimento | la schermata porte e finestre (solo se una è aperta) |
 | `activity_entities` | nessuna | la schermata dell'attività di oggi (per esempio i passi del telefono) |
+| `system_entities` | i `sensor.system_monitor_*` in % | la schermata di Home Assistant (CPU, memoria, disco) |
 | `photo_ask_below`, `photo_ask_days` | 5, 14 | con meno foto le chiede su Telegram, al massimo ogni N giorni (0: mai) |
 | `room_change_degrees` | 1.5 | una stanza che cambia di tanto in un'ora: lo dice |
 

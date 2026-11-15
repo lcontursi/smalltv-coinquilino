@@ -54,7 +54,8 @@ The texts are in Italian.
   Also: a **clock** with the weather outside and the next appointment, the **house as icons** (lights,
   climate, temperature, humidity, doors), **now playing** (cover, title, artist, progress) while a
   `media_player` plays, **doors and windows** when one is open, and today's **activity** (e.g. steps,
-  `activity_entities`).
+  `activity_entities`), and **Home Assistant** itself (CPU, memory, disk, from System
+  Monitor).
   Screens sit in the same white frame as the photos.
 - **Weather that compares** (Open-Meteo, no key) — "domani 5 gradi in meno", "dopo giorni asciutti,
   pioggia giovedì"; the hourly chart only when rain or gusts are due; the morning greeting says

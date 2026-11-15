@@ -45,7 +45,9 @@ Con `screens: true` (predefinito), immagini che occupano tutto il cubo:
 - **casa a icone** (3.5): luci accese, clima acceso, temperatura e umidità, porte aperte, fuori;
 - **in riproduzione** (3.5): copertina, titolo, artista e avanzamento mentre un `media_player` suona;
 - **porte e finestre** (3.5): solo quando una è aperta; anche i sensori di movimento;
-- **attività** (3.5): i numeri di oggi da `activity_entities` (per esempio i passi).
+- **attività** (3.5): i numeri di oggi da `activity_entities` (per esempio i passi);
+- **Home Assistant** (3.5.1): CPU, memoria e disco ad anelli e il carico, con l'integrazione
+  *System Monitor* (in una macchina virtuale sono i numeri della VM, non del computer che la ospita).
 
 Un'automazione di Home Assistant può mettere un avviso urgente a tutto cubo con `coinquilino_say` e
 `urgent` (vedi Home Assistant).
