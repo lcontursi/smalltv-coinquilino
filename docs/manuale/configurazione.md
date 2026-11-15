@@ -48,6 +48,9 @@ I nomi dei tipi di chiacchiera (`chatter_day_max`, `voice_kinds`) sono quelli de
 | `arrive_group_seconds` | 90 | chi arriva insieme riceve un saluto solo |
 | `indoor_temperature` | media dei `climate.*` | sensori da mediare per "in casa ci sono N gradi" |
 | `power_sensor`, `energy_sensor` | nessuno | W adesso, kWh da mezzanotte, per la schermata della corrente |
+| `battery_entities` | tutti i sensori con `device_class: battery` | quali batterie mostra la schermata delle batterie |
+| `battery_screen_below` | 30 | la schermata delle batterie compare solo se una è sotto questa percentuale (0: sempre, a turno) |
+| `thermostat` | il primo `climate.*` con la temperatura | l'entità della schermata del termostato (solo se è acceso) |
 | `room_change_degrees` | 1.5 | una stanza che cambia di tanto in un'ora: lo dice |
 
 ## Di cosa parla

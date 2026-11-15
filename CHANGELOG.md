@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.4.0
+
+- **Two new full-cube screens that appear only when they matter.**
+  - **Batteries**: one ring per device (phones, sensors, the doorbell), red under 20%, yellow under
+    40%. It is shown only when something is below `battery_screen_below` (30% by default; 0 = always,
+    in turn). Devices come from `battery_entities` or, without it, from every sensor with
+    `device_class: battery`.
+  - **Thermostat**: current and target temperature, heating or not, humidity and the other rooms,
+    only while the thermostat is on (`thermostat`, default the first `climate.*` with a temperature).
+- **Cells and widgets** (`grafici.py`): a screen is now a grid of cells (`griglia`) with widgets drawn
+  inside them (`w_anello`, `w_valore`), so the next screens are a few lines.
+- **Screens have a border, like photos.** Every full-cube screen (week, home, power, batteries,
+  thermostat) is now drawn at 220x180 and shown in the same white rounded frame as the family
+  photos, over the bedroom, instead of touching the edge of the glass. Long names shrink to fit.
+
 ## 3.3.2
 
 - **Sentences and the blackboard loop on 12 frames.** While Alessio talks every frame differs (the

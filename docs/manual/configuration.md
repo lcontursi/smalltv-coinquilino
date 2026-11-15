@@ -47,6 +47,9 @@ The names used for chatter kinds (`chatter_day_max`, `voice_kinds`) are the ones
 | `arrive_group_seconds` | 90 | people arriving together get one greeting |
 | `indoor_temperature` | average of `climate.*` | sensors to average for "inside it's N degrees" |
 | `power_sensor`, `energy_sensor` | none | W now, kWh since midnight, for the power screen |
+| `battery_entities` | all sensors with `device_class: battery` | which batteries the battery screen shows |
+| `battery_screen_below` | 30 | the battery screen appears only when one is below this percentage (0: always, in turn) |
+| `thermostat` | first `climate.*` with a temperature | the entity of the thermostat screen (shown only while it is on) |
 | `room_change_degrees` | 1.5 | a room changing this much in an hour is worth saying |
 
 ## What it talks about

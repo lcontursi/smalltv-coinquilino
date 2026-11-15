@@ -168,6 +168,10 @@ feeds:                                 # notizie: feed RSS, ognuno con la sua et
 # screens: true                        # schermate a tutto cubo: settimana del meteo, casa, corrente
 # power_sensor: sensor.casa_potenza    # watt di adesso (facoltativo, per la schermata della corrente)
 # energy_sensor: sensor.casa_energia_oggi   # kWh da mezzanotte (facoltativo)
+# battery_entities:                  # 3.4: schermata delle batterie; senza, tutti i sensori con device_class battery
+#   - sensor.telefono_mario_battery_level
+# battery_screen_below: 30           # 3.4: compare solo se una batteria e' sotto questa percentuale (0: sempre, a turno)
+# thermostat: climate.soggiorno      # 3.4: schermata del termostato (solo se acceso); senza, il primo climate con la temperatura
 # room_change_degrees: 1.5             # una stanza che cambia di tanto in un'ora: lo dice
 # chatter_day_max:                     # quante volte al giorno al massimo, per tipo (nomi del log)
 #   news.headline: 8

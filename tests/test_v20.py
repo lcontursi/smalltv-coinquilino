@@ -65,7 +65,7 @@ def test_weekly_chart_instead_of_obvious_hours(make_app, cube):
     text, card = app._f_grafico_meteo()
     assert text == "Domani 5 gradi in meno di oggi: massima 14." and card.size == (grafici.CARD_W, grafici.CARD_H)
     full = app._f_schermo_meteo()[1]
-    assert full.size == (240, 200)
+    assert full.size == (grafici.FULL_W, grafici.FULL_H)
 
 
 def test_morning_says_the_difference_with_yesterday(make_app, cube):
@@ -162,20 +162,20 @@ def test_home_screen_and_power_screen(make_app, cube):
     app = make_app(dict(DAY, host=cube.host, indoor_temperature=["sensor.studio"],
                         nicknames={"person.mario": "Mario"}), states=states)
     text, img = app._f_schermo_casa()
-    assert text == "In casa: Mario." and img.size == (240, 200)
+    assert text == "In casa: Mario." and img.size == (grafici.FULL_W, grafici.FULL_H)
     assert app._room_name("sensor.studio") == "Studio"
     assert app._f_schermo_consumi() is None                          # senza sensori: niente schermata
     app.power_sensor, app.energy_sensor = "sensor.potenza", "sensor.energia"
     app.mem["energia"] = {(date.today() - timedelta(days=1)).isoformat(): 8.1}
     text, img = app._f_schermo_consumi()
-    assert text == "Corrente: oggi 6,3 kWh finora, ieri 8,1 in tutto." and img.size == (240, 200)
+    assert text == "Corrente: oggi 6,3 kWh finora, ieri 8,1 in tutto." and img.size == (grafici.FULL_W, grafici.FULL_H)
 
 
 def test_screen_shown_full_cube(make_app, cube):
     app = make_app(dict(DAY, host=cube.host, talk_every_minutes=0, nicknames={"person.mario": "Mario"}))
     app.filler_order = ["schermo_casa"]
     app._filler({})
-    assert app.msg["screen"].size == (240, 200) and "card" not in app.msg
+    assert app.msg["screen"].size == (grafici.FULL_W, grafici.FULL_H) and "card" not in app.msg
 
 
 # ------------------------------------------------------------------ la casa che cambia

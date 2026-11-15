@@ -41,7 +41,7 @@ These are also the names for `chatter_day_max` and `voice_kinds`:
 | `me.fact` / `me.gallery` | curiosity, drawings | `home.temperature` | a room changing fast |
 | | | `home.read` / `home.confirm` / `home.action` | commands to the house: reads, yes/no, actions |
 | `claude.usage` / `claude.chart` / `api.usage` | Claude | `memory.night` / `character.week` / `me.idea` | night work |
-| `screen.weather` / `screen.home` / `screen.power` | screens | `claude.low` / `claude.refilled` | Claude session |
+| `screen.weather` / `screen.home` / `screen.power` / `screen.battery` / `screen.thermostat` | screens | `claude.low` / `claude.refilled` | Claude session |
 | `me.showcase` | today's showcase | `api.budget` | spending warning |
 
 ## Common problems

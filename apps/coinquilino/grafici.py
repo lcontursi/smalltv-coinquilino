@@ -340,7 +340,8 @@ def settimana(giorni, oggi, font, prima=3, dopo=3, w=CARD_W, h=CARD_H, titolo=No
 
 
 # ------------------------------------------------------------------ schermate a tutto cubo (2.0)
-FULL_W, FULL_H = 240, 200
+# 3.4 (DC): 220x180, come le foto: il personaggio le mette nella stessa cornice bianca sulla cameretta
+FULL_W, FULL_H = 220, 180
 
 
 def _titolo(d, testo, font, w=FULL_W):
@@ -354,26 +355,29 @@ def schermata_casa(persone, stanze, luci, font):
     _titolo(d, "In casa", font)
     y = 30
     for k, (nome, dentro) in enumerate(persone[:6]):
-        x = 14 + (k % 3) * 74
+        x = 10 + (k % 3) * (FULL_W - 20) / 3
         yy = y + (k // 3) * 22
         d.ellipse([x * S, (yy + 3) * S, (x + 10) * S, (yy + 13) * S], fill=GREEN if dentro else GRID,
                   outline=INK, width=S)
-        d.text(((x + 15) * S, (yy + 8) * S), nome[:8], font=_font(font, 12),
+        px, larg = 12, (FULL_W - 20) / 3 - 18
+        while px > 8 and d.textlength(nome[:12], font=_font(font, px)) / S > larg:
+            px -= 1                                          # il nome lungo si rimpicciolisce
+        d.text(((x + 15) * S, (yy + 8) * S), nome[:12], font=_font(font, px),
                fill=INK if dentro else (130, 145, 165), anchor="lm")
     y = 30 + 22 * ((min(len(persone), 6) + 2) // 3) + 8
     d.line([(10 * S, y * S), ((FULL_W - 10) * S, y * S)], fill=GRID, width=S)
     y += 8
-    for nome, t, dv in stanze[:5]:
+    for nome, t, dv in stanze[:max(0, int((FULL_H - 22 - y) / 20))]:   # quante ne stanno sopra le luci
         d.text((14 * S, y * S), nome[:16], font=_font(font, 13), fill=INK)
-        d.text((178 * S, y * S), f"{t:.1f}°".replace(".", ","), font=_font(font, 13), fill=INK, anchor="ra")
+        d.text(((FULL_W - 50) * S, y * S), f"{t:.1f}°".replace(".", ","), font=_font(font, 13), fill=INK, anchor="ra")
         if dv is not None and abs(dv) >= .3:
             up = dv > 0
             col = RED if up else BLUE
-            cx, cy = 194, y + 8
+            cx, cy = FULL_W - 36, y + 8
             k = 1 if up else -1                               # triangolo in su o in giu'
             pts = [(cx - 5, cy + 3 * k), (cx + 5, cy + 3 * k), (cx, cy - 4 * k)]
             d.polygon([(px * S, py * S) for px, py in pts], fill=col)
-            d.text((204 * S, y * S), f"{abs(dv):.1f}".replace(".", ","), font=_font(font, 11), fill=col)
+            d.text(((FULL_W - 27) * S, y * S), f"{abs(dv):.1f}".replace(".", ","), font=_font(font, 11), fill=col)
         y += 20
     d.text((FULL_W / 2 * S, (FULL_H - 6) * S),
            "nessuna luce accesa" if not luci else f"{luci} luc{'e accesa' if luci == 1 else 'i accese'}",
@@ -393,7 +397,7 @@ def schermata_consumi(watt, kwh_oggi, kwh_ieri, font):
         for k, (lab, v) in enumerate((("oggi", kwh_oggi), ("ieri", kwh_ieri))):
             if v is None:
                 continue
-            y = 112 + k * 38
+            y = 104 + k * 36
             d.text((14 * S, y * S), lab, font=_font(font, 12), fill=INK)
             d.text(((FULL_W - 14) * S, y * S), f"{v:.1f} kWh".replace(".", ","), font=_font(font, 12),
                    fill=INK, anchor="ra")
@@ -403,4 +407,128 @@ def schermata_consumi(watt, kwh_oggi, kwh_ieri, font):
             if wv > 5:
                 d.rounded_rectangle([16 * S, (y + 19) * S, (16 + wv) * S, (y + 27) * S], radius=4 * S,
                                     fill=YELLOW if k == 0 else (170, 185, 205))
+    return _done(img)
+
+
+# ------------------------------------------------------------------ widget e griglia (3.4)
+# Una schermata e' fatta di celle (rettangoli) e di widget che si disegnano dentro una cella:
+# `griglia` dice dove stanno le celle, `w_anello` e `w_valore` cosa c'e' dentro. Cosi' una schermata
+# nuova e' poche righe e il bordo (DC) potra' stare in un punto solo.
+GRIGIO = (130, 145, 165)
+ORANGE = (240, 140, 50)
+
+
+class Cella:
+    """Un rettangolo dello schermo, in pixel veri (non ingranditi)."""
+    __slots__ = ("x", "y", "w", "h")
+
+    def __init__(self, x, y, w, h):
+        self.x, self.y, self.w, self.h = x, y, w, h
+
+    @property
+    def cx(self):
+        return self.x + self.w / 2
+
+    @property
+    def cy(self):
+        return self.y + self.h / 2
+
+
+def griglia(n, w=FULL_W, h=FULL_H, alto=28, basso=6, margine=8, spazio=6, colonne=None):
+    """Le celle di n elementi uguali sotto il titolo: 1, 2, 3 in fila; 4 in 2x2; 5-6 in 3 colonne;
+    poi 4 colonne. L'ultima riga, se e' incompleta, sta al centro."""
+    if n <= 0:
+        return []
+    cols = colonne or {1: 1, 2: 2, 3: 3, 4: 2, 5: 3, 6: 3}.get(n, 4)
+    righe = -(-n // cols)
+    cw = (w - 2 * margine - (cols - 1) * spazio) / cols
+    ch = (h - alto - basso - (righe - 1) * spazio) / righe
+    celle = []
+    for r in range(righe):
+        in_riga = min(cols, n - r * cols)
+        x0 = margine + (cols - in_riga) * (cw + spazio) / 2
+        for k in range(in_riga):
+            celle.append(Cella(x0 + k * (cw + spazio), alto + r * (ch + spazio), cw, ch))
+    return celle
+
+
+def colore_livello(p):
+    """Rosso sotto il 20%, giallo sotto il 40%, verde sopra."""
+    return RED if p < 20 else YELLOW if p < 40 else GREEN
+
+
+def w_anello(d, c, valore, nome, font, colore=None):
+    """Un anello che si riempie fino a `valore` (0-100), la percentuale al centro, il nome sotto."""
+    px_nome = 11 if c.w < 90 else 12
+    r = max(10, min(c.w / 2 - 3, (c.h - px_nome - 8) / 2, 52))
+    cx, cy = c.cx, c.y + 3 + r
+    larg = max(4, r * .3)
+    box = [(cx - r) * S, (cy - r) * S, (cx + r) * S, (cy + r) * S]
+    d.ellipse(box, outline=GRID, width=int(larg * S))
+    v = max(0, min(100, valore))
+    if v > 0:
+        d.arc(box, -90, -90 + 360 * v / 100, fill=colore or colore_livello(v), width=int(larg * S))
+    d.text((cx * S, cy * S), f"{v:.0f}%", font=_font(font, max(9, int(r * .56))), fill=INK, anchor="mm")
+    while px_nome > 9 and d.textlength(nome, font=_font(font, px_nome)) / S > c.w:
+        px_nome -= 1                                          # il nome lungo si rimpicciolisce
+    d.text((cx * S, (cy + r + 4) * S), nome, font=_font(font, px_nome), fill=INK, anchor="mt")
+
+
+def w_valore(d, c, testo, etichetta, font, px=22, colore=INK):
+    """Un numero grande con la sua etichetta sotto, al centro della cella."""
+    d.text((c.cx * S, (c.cy - 6) * S), testo, font=_font(font, px), fill=colore, anchor="mm")
+    d.text((c.cx * S, (c.cy + px / 2 + 2) * S), etichetta, font=_font(font, 11), fill=GRIGIO, anchor="mt")
+
+
+def _etichetta(d, x, y, testo, font, colore, px=12):
+    """Una pastiglia colorata col testo; restituisce dove finisce (x del bordo destro)."""
+    f = _font(font, px)
+    larg = d.textlength(testo, font=f) / S + 14
+    d.rounded_rectangle([x * S, y * S, (x + larg) * S, (y + px + 8) * S], radius=(px + 8) / 2 * S,
+                        fill=colore)
+    d.text(((x + larg / 2) * S, (y + (px + 8) / 2) * S), testo, font=f, fill=WHITE, anchor="mm")
+    return x + larg
+
+
+def schermata_batterie(voci, font):
+    """voci: [(nome, percento)], dalla piu' scarica. Un anello per dispositivo, al massimo 8."""
+    img, d = _canvas(FULL_W, FULL_H)
+    _titolo(d, "Batterie", font)
+    voci = sorted(voci, key=lambda v: v[1])[:8]
+    for c, (nome, p) in zip(griglia(len(voci)), voci, strict=True):
+        w_anello(d, c, p, nome[:14], font)
+    return _done(img)
+
+
+def schermata_termostato(attuale, obiettivo, azione, umidita, stanze, font):
+    """attuale/obiettivo: gradi; azione: 'heating' | 'cooling' | 'idle' | None; umidita: % o None;
+    stanze: [(nome, gradi)], le altre stanze (al massimo 3)."""
+    img, d = _canvas(FULL_W, FULL_H)
+    _titolo(d, "Termostato", font)
+    d.text((FULL_W / 2 * S, 62 * S), f"{attuale:.1f}°".replace(".", ","), font=_font(font, 46), fill=INK,
+           anchor="mm")
+    voci = []
+    if azione == "heating":
+        voci.append(("riscalda", ORANGE))
+    elif azione == "cooling":
+        voci.append(("raffredda", BLUE))
+    elif azione is not None:
+        voci.append(("fermo", (150, 165, 185)))
+    if obiettivo is not None:
+        voci.append((f"a {obiettivo:.1f}°".replace(".", ",").replace(",0°", "°"), INK))
+    if umidita is not None:
+        voci.append((f"umidità {umidita:.0f}%", (110, 160, 210)))
+    f = _font(font, 12)
+    def largo(vv):
+        return sum(d.textlength(t, font=f) / S + 14 for t, _ in vv) + 6 * (len(vv) - 1)
+    while len(voci) > 1 and largo(voci) > FULL_W - 12:
+        voci.pop()                                          # non ci sta: via l'ultima (l'umidita')
+    totale = largo(voci)
+    x = (FULL_W - totale) / 2
+    for t, col in voci:
+        x = _etichetta(d, x, 94, t, font, col) + 6
+    if stanze:
+        d.line([(10 * S, 124 * S), ((FULL_W - 10) * S, 124 * S)], fill=GRID, width=S)
+        for c, (nome, t) in zip(griglia(len(stanze[:3]), alto=128, basso=2), stanze[:3], strict=True):
+            w_valore(d, c, f"{t:.1f}°".replace(".", ","), nome[:12], font, px=20)
     return _done(img)

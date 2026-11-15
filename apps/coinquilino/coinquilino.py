@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.3.2"
+VERSION = "3.4.0"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -273,6 +273,7 @@ TOPIC = {"vetrina": "me.showcase",
     "notizia": "news.headline", "sole": "sky.sun", "giorno": "calendar.today", "aerei": "planes.nearby",
     "radar": "planes.radar", "fatto": "me.fact", "galleria": "me.gallery", "api": "api.usage",
     "schermo_meteo": "screen.weather", "schermo_casa": "screen.home", "schermo_consumi": "screen.power",
+    "schermo_batterie": "screen.battery", "schermo_termostato": "screen.thermostat",
     "room_change": "home.temperature", "agenda": "home.agenda",
 }
 KIND_OF = {v: k for k, v in TOPIC.items()}          # nome pubblico -> interno (voice_kinds)
@@ -285,14 +286,14 @@ CHATTER_EVERY = {"giorno": 240, "sole": 120, "claude": 90, "grafico_claude": 180
                  "grafico_meteo": 60, "meteo": 30, "casa": 30, "chi": 45, "notizia": 10,
                  "aerei": 60, "radar": 90, "fatto": 180, "galleria": 360, "api": 240,
                  "schermo_meteo": 120, "schermo_casa": 90, "schermo_consumi": 120, "vetrina": 5,
-                 "agenda": 120}
+                 "agenda": 120, "schermo_batterie": 120, "schermo_termostato": 90}
 
 # 2.0: quante volte al giorno al massimo, per tipo di chiacchiera (chatter_day_max le cambia).
 # Nel log del 04-05/11 le chiacchiere erano quasi tutte notizie, meteo e "chi c'e' in casa"
 CHATTER_DAY = {"notizia": 5, "meteo": 4, "previsioni": 3, "casa": 3, "chi": 2, "sole": 1, "giorno": 1,
                "claude": 2, "grafico_claude": 1, "aerei": 2, "radar": 1, "fatto": 2, "galleria": 1,
                "api": 1, "grafico_meteo": 3, "schermo_meteo": 3, "schermo_casa": 3, "schermo_consumi": 3,
-               "vetrina": 99, "agenda": 4}
+               "vetrina": 99, "agenda": 4, "schermo_batterie": 3, "schermo_termostato": 3}
 
 # 2.1 (BM, BO, BT, BW): argomenti gia' detti oggi, riconosciuti dal testo della frase. Il regista
 # li riceve; avvisi e chiacchiere che li ripeterebbero tacciono
@@ -526,6 +527,11 @@ class Coinquilino(hass.Hass):
         self.power_sensor = a.get("power_sensor")             # es. sensor.casa_potenza (W)
         self.energy_sensor = a.get("energy_sensor")           # es. sensor.casa_energia_oggi (kWh, da mezzanotte)
         self.room_change = float(a.get("room_change_degrees", 1.5))   # in un'ora: vale la pena dirlo
+        # 3.4: schermate che compaiono solo quando servono (batterie basse, riscaldamento acceso)
+        be = a.get("battery_entities") or []                  # senza: tutti i sensori con device_class battery
+        self.battery_ents = [be] if isinstance(be, str) else list(be)
+        self.battery_below = float(a.get("battery_screen_below", 30))   # 0: sempre, a turno
+        self.thermostat = a.get("thermostat")                 # senza: il primo climate con la temperatura
         # 2.2: le regole sulla casa (luci, clima, citofono, batterie, aggiornamenti) stanno in Home
         # Assistant (blueprint in blueprints/); qui arrivano con l'evento coinquilino_say
         self.quiet_until = 0.0              # quiet_seconds dell'evento: niente chiacchiere (citofono)
@@ -2363,7 +2369,8 @@ class Coinquilino(hass.Hass):
         if self.cards_on and hasattr(self.char, "render_card"):
             kinds += ["grafico_meteo", "grafico_claude", "radar", "galleria"]
         if self.screens_on:
-            kinds += ["schermo_meteo", "schermo_casa", "schermo_consumi"]
+            kinds += ["schermo_meteo", "schermo_casa", "schermo_consumi", "schermo_batterie",
+                      "schermo_termostato"]
         for _ in range(len(kinds)):
             if not self.filler_order:
                 self.filler_order = random.sample(kinds, len(kinds))
@@ -2943,6 +2950,78 @@ class Coinquilino(hass.Hass):
             text = f"Adesso la casa usa {watt:.0f} watt."
         else:
             text = f"Corrente: oggi {dec(kwh)} kWh finora."
+        return text, img
+
+    # ------------------------------------------------------------------ batterie e termostato (3.4)
+    @staticmethod
+    def _battery_name(e, friendly, intero=False):
+        n = re.sub(r"(?i)\b(batteria|battery|level|livello|sensore|di|del|della)\b", " ",
+                   friendly or e.split(".")[-1].replace("_", " "))
+        parole = n.split() or [e.split(".")[-1]]
+        parole = [p if p != p.lower() else p[0].upper() + p[1:] for p in parole]   # "iPhone" resta
+        return " ".join(parole) if intero else parole[0]
+
+    def _batterie(self):
+        """[(nome, percento)] dei dispositivi con la batteria, dalla piu' scarica. Il nome e' la prima
+        parola ("Luca"); se due dispositivi si chiamano uguale, per intero."""
+        if self.battery_ents:
+            cand = [(e, self._num(e), self.get_state(e, attribute="friendly_name")) for e in self.battery_ents]
+        else:
+            cand = []
+            for e, s in (self.get_state("sensor") or {}).items():
+                at = (s or {}).get("attributes") or {}
+                if at.get("device_class") == "battery":
+                    cand.append((e, self._num(e), at.get("friendly_name")))
+        cand = [(e, v, n) for e, v, n in cand if v is not None and 0 <= v <= 100]
+        brevi = [self._battery_name(e, n) for e, v, n in cand]
+        out = [(self._battery_name(e, n, intero=brevi.count(b) > 1), v)
+               for (e, v, n), b in zip(cand, brevi, strict=True)]
+        return sorted(out, key=lambda x: x[1])
+
+    def _f_schermo_batterie(self):
+        voci = self._batterie()
+        if not voci:
+            return None
+        basse = [(n, v) for n, v in voci if v < self.battery_below]
+        if self.battery_below and not basse:
+            return None                                   # niente di scarico: la schermata non serve
+        img = grafici.schermata_batterie(voci, self.font_path)
+        if not basse:
+            n, v = voci[0]
+            return f"Batterie: la più scarica è {n}, al {v:.0f}%.", img
+        elenco = ", ".join(f"{n} al {v:.0f}%" for n, v in basse[:3])
+        return (f"Batteria bassa: {elenco}." if len(basse) == 1 else f"Batterie basse: {elenco}."), img
+
+    def _thermostat_entity(self):
+        if self.thermostat:
+            return self.thermostat
+        # prima un termostato vero (dice se scalda: hvac_action), poi un climate qualsiasi con la
+        # temperatura: i condizionatori a infrarossi non sanno cosa stanno facendo
+        cl = self.get_state("climate") or {}
+        con_t = [e for e in sorted(cl) if self._num(e, "current_temperature") is not None]
+        veri = [e for e in con_t if ((cl[e] or {}).get("attributes") or {}).get("hvac_action") is not None]
+        return (veri or con_t or [None])[0]
+
+    def _f_schermo_termostato(self):
+        e = self._thermostat_entity()
+        if not e or self.get_state(e) in (None, "off", "unavailable", "unknown"):
+            return None                                   # spento (o non c'e'): non si mostra
+        t = self._room_temp(e)
+        if t is None:
+            return None
+        goal = self._num(e, "temperature")
+        azione = self.get_state(e, attribute="hvac_action")
+        umid = self._num(e, "current_humidity")
+        stanze = []
+        for r in self._room_ents():
+            v = self._room_temp(r) if r != e else None
+            if v is not None:
+                stanze.append((self._room_name(r), v))
+        img = grafici.schermata_termostato(t, goal, azione, umid, stanze[:3], self.font_path)
+        text = f"Termostato: {gradi(t)}"
+        if goal is not None:
+            text += f", impostato a {dec(goal)}"
+        text += {"heating": ", sta riscaldando.", "cooling": ", sta raffreddando."}.get(azione, ".")
         return text, img
 
     def _energy_keep(self):
@@ -4507,7 +4586,10 @@ class Coinquilino(hass.Hass):
                 img = self._render(mood, sky, weather, page, talking, more, festa, None, {},
                                    card=(m["card"], m["t0"]))
             elif m and m.get("screen") is not None and time.time() - m["t0"] < self._bubble_life(m):
-                img = m["screen"]                    # schermata a tutto cubo (2.0): ferma
+                if m.get("screen_frame") is None:    # 3.4 (DC): nella cornice delle foto, composta una volta
+                    m["screen_frame"] = (self.char.render_photo(m["screen"], sky, weather, 0, festa)
+                                         if hasattr(self.char, "render_photo") else m["screen"])
+                img = m["screen_frame"]
             else:
                 extra = {"scene": self._scene()} if self.char is alessio and self.scenes_on else {}
                 img = self._render(mood, sky, weather, page, talking, more, festa, plane, extra)

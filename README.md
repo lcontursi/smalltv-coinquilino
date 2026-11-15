@@ -48,7 +48,10 @@ The texts are in Italian.
   see it even if you look at the cube hours later.
 - **Full-cube screens** (`screens`) — the week's weather, the house (who is home, room temperatures
   and their change in the last hour, lights on) and, with `power_sensor` / `energy_sensor`, the
-  power now and today's energy against yesterday's.
+  power now and today's energy against yesterday's. Two more appear only when they matter: the
+  **batteries** (rings, when one is below `battery_screen_below`, 30% by default) and the
+  **thermostat** (current and target temperature, heating or not, the other rooms) while it is on.
+  Screens sit in the same white frame as the photos.
 - **Weather that compares** (Open-Meteo, no key) — "domani 5 gradi in meno", "dopo giorni asciutti,
   pioggia giovedì"; the hourly chart only when rain or gusts are due; the morning greeting says
   today against yesterday.

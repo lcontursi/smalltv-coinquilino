@@ -42,7 +42,7 @@ Sono anche i nomi per `chatter_day_max` e `voice_kinds`:
 | `me.fact` / `me.gallery` | curiosità, disegni | `home.temperature` | una stanza che cambia in fretta |
 | | | `home.read` / `home.confirm` / `home.action` | comandi alla casa: letture, sì/no, azioni |
 | `claude.usage` / `claude.chart` / `api.usage` | Claude | `memory.night` / `character.week` / `me.idea` | lavoro notturno |
-| `screen.weather` / `screen.home` / `screen.power` | schermate | `claude.low` / `claude.refilled` | sessione di Claude |
+| `screen.weather` / `screen.home` / `screen.power` / `screen.battery` / `screen.thermostat` | schermate | `claude.low` / `claude.refilled` | sessione di Claude |
 | `me.showcase` | la vetrina del giorno | `api.budget` | avviso della spesa |
 
 ## I problemi più comuni

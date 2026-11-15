@@ -36,7 +36,13 @@ With `screens: true` (default), whole-cube images:
 - **weather**: the week compared with the days before;
 - **home**: who is in, room temperatures with the change in the last hour, lights on;
 - **power**: with `power_sensor` (W) and `energy_sensor` (kWh since midnight), now and today against
-  yesterday.
+  yesterday;
+- **batteries** (3.4): one ring per device (phones, sensors, doorbell), only when one is below
+  `battery_screen_below`;
+- **thermostat** (3.4): current and target temperature, heating or not, the other rooms, only while
+  the thermostat is on.
+
+Screens sit in the same white frame as the family photos.
 
 Blackboards and screens stay until something else replaces them (`show_minutes`, at least
 `card_seconds`).

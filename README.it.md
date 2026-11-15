@@ -49,7 +49,10 @@ pixel art.
   regista), così la vedi anche se guardi il cubo ore dopo.
 - **Schermate a tutto cubo** (`screens`) — il meteo della settimana, la casa (chi c'è, le
   temperature delle stanze e quanto sono cambiate nell'ultima ora, le luci accese) e, con
-  `power_sensor` / `energy_sensor`, la potenza di adesso e l'energia di oggi contro ieri.
+  `power_sensor` / `energy_sensor`, la potenza di adesso e l'energia di oggi contro ieri. Altre due
+  compaiono solo quando servono: le **batterie** (anelli, quando una è sotto `battery_screen_below`,
+  30% di norma) e il **termostato** (temperatura di adesso e voluta, se scalda, le altre stanze)
+  finché è acceso. Le schermate stanno nella stessa cornice bianca delle foto.
 - **Il meteo a confronto** (Open-Meteo, senza chiave) — "domani 5 gradi in meno", "dopo giorni
   asciutti, pioggia giovedì"; il grafico orario solo quando arrivano pioggia o raffiche; il saluto
   del mattino confronta oggi con ieri.

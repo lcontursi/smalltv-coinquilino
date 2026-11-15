@@ -36,7 +36,13 @@ Con `screens: true` (predefinito), immagini che occupano tutto il cubo:
 - **meteo**: la settimana a confronto con i giorni prima;
 - **casa**: chi c'è, le temperature delle stanze con la variazione dell'ultima ora, le luci accese;
 - **corrente**: con `power_sensor` (W) ed `energy_sensor` (kWh da mezzanotte), adesso e oggi contro
-  ieri.
+  ieri;
+- **batterie** (3.4): un anello per dispositivo (telefoni, sensori, citofono), solo quando una è
+  sotto `battery_screen_below`;
+- **termostato** (3.4): temperatura di adesso e voluta, se scalda, le altre stanze, solo finché il
+  termostato è acceso.
+
+Le schermate stanno nella stessa cornice bianca delle foto di famiglia.
 
 Lavagnette e schermate restano finché non arriva altro (`show_minutes`, almeno `card_seconds`).
 
