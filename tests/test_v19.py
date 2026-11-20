@@ -18,7 +18,7 @@ def test_forget_names_an_interest_and_blocks_it(make_app, cube):
     answer = app._chat_reply("dimentica gli aerei che passano sopra casa")
     assert "non parlo più di aerei" in answer
     assert "aerei" not in app.carattere.interessi and app.carattere.bloccati == ["aerei"]
-    assert "Non parlare mai di: aerei." in app.carattere.prompt()
+    assert "Non tirare fuori tu questi argomenti: aerei" in app.carattere.prompt()
     assert any(m.startswith("ACT") and "interessi bloccati: aerei" in m for _, m in app.logs)
 
 
@@ -107,4 +107,4 @@ def test_discarded_ideas_go_into_next_prompt(make_app, cube):
 def test_version():
     import re
     pyproject = open(os.path.join(os.path.dirname(__file__), "..", "pyproject.toml"), encoding="utf-8").read()
-    assert coinquilino.VERSION == "3.5.2" == re.search(r'^version = "(.+)"', pyproject, re.M).group(1)
+    assert coinquilino.VERSION == "3.6.0" == re.search(r'^version = "(.+)"', pyproject, re.M).group(1)

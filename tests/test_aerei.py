@@ -4,7 +4,7 @@ import aerei
 def test_descrivi():
     a = {"flight": "RYR4LB", "type": "B738", "alt_m": 3200}
     assert aerei.descrivi(a, ("Brindisi", "Bergamo")) == \
-        "un Boeing 737 Ryanair da Brindisi a Bergamo a 3.200 metri"
+        "un volo Ryanair da Brindisi a Bergamo, un Boeing 737 a 3.200 metri"
     assert aerei.descrivi({"flight": "IAM1234", "type": "C30J"}) == "un Hercules militare dell'Aeronautica Militare"
     assert aerei.descrivi({}) == "un aereo"
 

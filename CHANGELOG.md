@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.6.0
+
+- **Planes: where from and where to.** Routes come from adsbdb (the adsb.lol route service answers
+  500 and the error was swallowed, so no route was ever said). A route is used only if the plane is
+  roughly between the two airports; city names in Italian. The sentence now leads with the route
+  (*"un volo Aegean da Atene a Roma, un Airbus A320neo a 11.880 metri"*); a missing route is logged.
+- **A blocked topic holds everywhere.** *"Non parlare più di aerei"* now also stops plane alerts,
+  the radar, the plane count in the diary and the nightly ideas; but if someone asks about it,
+  the character answers instead of refusing.
+- **The diary is shown once**: today's in the evening showcase once, yesterday's once and only
+  in the morning (it was repeated three times in 45 minutes).
+- **Director skips are logged with their real reason** (a correct SALTA was reported as "Claude's
+  answer discarded").
+- **Curiosity photos**: when the Wikipedia page is missing, a disambiguation page or has no image,
+  a search picks the result with a photo whose title best matches the sentence.
+- **Arrival greetings**: instructions phrased positively (a "no formulas" rule made Claude write
+  "no, I avoid the formula" inside the sentence); without real news, just a short greeting; no
+  temperature comparisons over a few hours.
+- **Less CPU while talking**: the room is cached apart from the speech bubble, so a long sentence
+  scrolling through pages redraws only the bubble (about 11 ms instead of 39 ms per frame here).
+
 ## 3.5.2
 
 - **The house-as-icons screen shows only what makes sense in your home.** Infrared air conditioners

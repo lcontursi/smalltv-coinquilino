@@ -65,8 +65,10 @@ The texts are in Italian.
 - **Agenda** — to-do items with a time and appointments coming up are said on the cube and sent to
   the phone, with human dates (*"domani alle 18"*, *"sabato"*); *"ricordami di … alle 18"* in the chat
   lands in your to-do list, *"fatto …"* ticks it off.
-- **Planes overhead** (public ADS-B, no key) — airline, type, altitude and route of the plane
-  passing above the house, seen through the window and on a radar.
+- **Planes overhead** (public ADS-B, no key) — where the plane passing above the house comes from
+  and where it is going (*"un volo Aegean da Atene a Roma"*), then type and altitude; seen through
+  the window and on a radar. A route is said only if the plane is roughly on the way between the
+  two cities (a reused flight number can carry an old route).
 - **News** from any RSS feeds, national and local, with categories to skip; sad news is never
   announced.
 - **Family photos** sent to the Telegram bot: at once on the cube, then in turn a few times a day;
@@ -84,7 +86,9 @@ The texts are in Italian.
   house, memories and questions each with a daily cap), so it doesn't talk only about the weather.
 - **Memory** — the day's events, an evening diary, and a long-term memory rewritten every night
   with what's worth keeping for weeks (people's tastes, plans, things in progress — not who comes
-  and goes). In the chat: *"ricordati che…"*, *"dimentica…"*, *"non parlare più di aerei"*.
+  and goes). In the chat: *"ricordati che…"*, *"dimentica…"*, *"non parlare più di aerei"*
+  (from 3.6 it holds everywhere: no plane alerts, radar, diary counts or ideas about it; if you ask
+  about it yourself, it answers; *"ora puoi parlare di aerei"* lifts it).
 - **A character that changes** — traits and interests shift a little every week with your 👍/👎;
   it learns a few curiosities each week; at most once a day it writes first, with an idea or a
   question prepared at night, and on Sundays a summary of the week.
@@ -245,6 +249,7 @@ aggiungi … alla lista delle cose da fare"* fills Alexa's to-do list, which `re
 | Anthropic (Claude API) | the persona you wrote (`about_owner`, `family`), first names/nicknames of the people at home and who is in, recent headlines, weather, the nearest plane, today's events, to-do items and today's appointments (with `reminders_todo` / `calendars`), what Home Assistant sent with `coinquilino_say`, chat messages, its long-term memories and character; when answering a chat message also the lights that are on, temperature sensors and the state of the entities in `control` | only with a key; only while someone in `presence` is home and awake — except chat replies, which are always answered |
 | Open-Meteo | your home coordinates (from `zone.home`) | every 15 minutes |
 | adsb.lol / adsb.fi | your home coordinates and a radius | every minute, by day |
+| adsbdb | the flight number of the nearest plane | once per flight every 6 hours |
 | your RSS feeds | a normal feed request | every hour |
 | your phone (`notify`) | reminders, actions taken, warnings | only if you set `notify` |
 | Telegram (through Home Assistant's Telegram bot) | replies to your messages, reminders, actions taken, warnings, ideas and the weekly summary | only if you set `telegram_chats` |
@@ -330,7 +335,7 @@ that is well under a dollar a month; the app counts it for you (`sensor.*_costo_
 
 - [glimmer](https://github.com/Avinava/glimmer) firmware (MIT) by its contributors
 - Weather: [Open-Meteo](https://open-meteo.com) (CC BY 4.0)
-- Aircraft: [adsb.lol](https://adsb.lol) (ODbL) and [adsb.fi](https://adsb.fi)
+- Aircraft: [adsb.lol](https://adsb.lol) (ODbL) and [adsb.fi](https://adsb.fi); routes: [adsbdb](https://www.adsbdb.com)
 - Fonts: Fredoka and Silkscreen from Google Fonts, bundled in `apps/coinquilino/fonts/` (SIL Open Font License, texts alongside)
 - Character lines by [Claude](https://www.anthropic.com/claude) (Anthropic API)
 

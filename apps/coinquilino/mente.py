@@ -188,7 +188,9 @@ class Carattere:
             return ("pochissimo" if v <= 2 else "poco" if v <= 4 else "abbastanza" if v <= 6
                     else "molto" if v <= 8 else "tantissimo")
         tr = ", ".join(f"{q(v)} {k}" for k, v in self.tratti.items())
-        stop = f" Non parlare mai di: {', '.join(self.bloccati)}." if self.bloccati else ""
+        # 3.6 (DM): "mai" faceva rifiutare anche le domande dirette ("gli aerei non li racconto piu'")
+        stop = (f" Non tirare fuori tu questi argomenti: {', '.join(self.bloccati)}; se qualcuno te "
+                "ne chiede, rispondi normalmente." if self.bloccati else "")
         return (f"Il tuo carattere adesso: {tr}. I tuoi interessi del momento: "
                 + ", ".join(self.preferiti(4)) + "." + stop)
 

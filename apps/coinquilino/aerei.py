@@ -3,7 +3,9 @@ Aerei sopra casa, dai dati ADS-B pubblici e gratuiti.
 
 - posizioni: adsb.lol (v2) e, se non risponde, adsb.fi (v3), stesso formato
   ("ac": [{hex, flight, r, t, alt_baro, gs, track, lat, lon}, ...])
-- rotta: adsb.lol /api/0/route/<callsign>/<lat>/<lon> -> aeroporti di partenza e arrivo
+- rotta (3.6, DL): adsbdb.com /v0/callsign/<callsign> -> aeroporti di partenza e arrivo, con un
+  controllo di plausibilita' (l'aereo deve stare grosso modo fra le due citta': un callsign
+  riusato puo' avere una rotta vecchia). Il vecchio servizio di adsb.lol risponde 500.
 
 Niente chiavi, niente account. Limite: circa 1 richiesta al secondo; il
 coinquilino ne fa una al minuto.
@@ -99,34 +101,66 @@ def vicini(lat, lon, raggio_km=25):
 
 _ROUTES = {}
 
+# nomi italiani delle citta' piu' comuni (adsbdb le da' in inglese)
+CITTA = {
+    "Rome": "Roma", "Milan": "Milano", "Naples": "Napoli", "Turin": "Torino", "Venice": "Venezia",
+    "Florence": "Firenze", "Genoa": "Genova", "Bergamo": "Bergamo", "Bologna": "Bologna",
+    "Athens": "Atene", "London": "Londra", "Paris": "Parigi", "Munich": "Monaco di Baviera",
+    "Brussels": "Bruxelles", "Lisbon": "Lisbona", "Warsaw": "Varsavia", "Prague": "Praga",
+    "Vienna": "Vienna", "Geneva": "Ginevra", "Zurich": "Zurigo", "Cologne": "Colonia",
+    "Istanbul": "Istanbul", "Cairo": "Il Cairo", "Moscow": "Mosca", "Bucharest": "Bucarest",
+    "Copenhagen": "Copenaghen", "Stockholm": "Stoccolma", "Seville": "Siviglia",
+    "Thessaloniki": "Salonicco", "Heraklion": "Candia", "Tirana": "Tirana", "Belgrade": "Belgrado",
+    "Sofia": "Sofia", "Nicosia": "Nicosia", "Larnaca": "Larnaca", "Tel Aviv": "Tel Aviv",
+    "Dubai": "Dubai", "Doha": "Doha", "Frankfurt": "Francoforte", "Frankfurt am Main": "Francoforte",
+    "Dusseldorf": "Düsseldorf", "Düsseldorf": "Düsseldorf", "Marseille": "Marsiglia",
+    "Nice": "Nizza", "Barcelona": "Barcellona", "Catania": "Catania", "Palermo": "Palermo",
+    "Bari": "Bari", "Brindisi": "Brindisi", "Cagliari": "Cagliari", "Pisa": "Pisa",
+    "Verona": "Verona", "Treviso": "Treviso", "Lamezia Terme": "Lamezia Terme",
+}
 
-def rotta(callsign, lat, lon):
-    """(partenza, arrivo) come nomi di citta'/aeroporti, oppure (None, None)."""
-    cs = (callsign or "").strip()
+
+def _citta(ap):
+    nome = (ap.get("municipality") or ap.get("name") or ap.get("iata_code") or "").strip()
+    return CITTA.get(nome, nome)
+
+
+def plausibile(lat, lon, o, d):
+    """L'aereo sta grosso modo sulla strada fra o e d? Ellisse: la somma delle distanze dai due
+    aeroporti non supera di molto la distanza fra loro (25% + 150 km di margine)."""
+    tot = _km(o["latitude"], o["longitude"], d["latitude"], d["longitude"])
+    via = _km(lat, lon, o["latitude"], o["longitude"]) + _km(lat, lon, d["latitude"], d["longitude"])
+    return via <= tot * 1.25 + 150
+
+
+def rotta(callsign, lat, lon, log=None):
+    """(partenza, arrivo) come nomi di citta', oppure (None, None). log(motivo) se non c'e'."""
+    cs = (callsign or "").strip().upper()
     if not cs:
         return None, None
     hit = _ROUTES.get(cs)
     if hit and time.time() - hit[0] < 6 * 3600:
         return hit[1]
-    res = (None, None)
+    res, why = (None, None), None
     try:
-        r = requests.get(f"https://api.adsb.lol/api/0/route/{cs}/{lat}/{lon}", headers=UA, timeout=10)
-        if r.ok:
-            j = r.json()
-            if isinstance(j, list):
-                j = j[0] if j else {}
-            if j.get("plausible", True) is not False:
-                aps = j.get("_airports") or []
-                names = [(a.get("location") or a.get("name") or a.get("iata") or "").strip()
-                         for a in aps]
-                if len(names) >= 2 and names[0] and names[-1]:
-                    res = (names[0], names[-1])
-                else:
-                    codes = (j.get("_airport_codes_iata") or j.get("airport_codes") or "").split("-")
-                    if len(codes) >= 2:
-                        res = (codes[0], codes[-1])
-    except Exception:
-        pass
+        r = requests.get(f"https://api.adsbdb.com/v0/callsign/{cs}", headers=UA, timeout=10)
+        if r.status_code == 404:
+            why = "rotta sconosciuta"
+        else:
+            r.raise_for_status()
+            fr = ((r.json() or {}).get("response") or {})
+            fr = fr.get("flightroute") if isinstance(fr, dict) else None
+            o, d = (fr or {}).get("origin") or {}, (fr or {}).get("destination") or {}
+            if not (o and d):
+                why = "rotta sconosciuta"
+            elif not plausibile(lat, lon, o, d):
+                why = f"rotta non plausibile ({_citta(o)}-{_citta(d)})"
+            else:
+                res = (_citta(o), _citta(d))
+    except Exception as e:
+        why = f"rotta non disponibile: {e}"
+    if why and log:
+        log(f"{cs}: {why}")
     _ROUTES[cs] = (time.time(), res)
     return res
 
@@ -140,11 +174,20 @@ def tipo(t):
     return TYPES.get((t or "").upper())
 
 
-def descrivi(a, route=(None, None)):
-    """Frase semplice, senza Claude: 'Ryanair, un Boeing 737 da Brindisi a Bergamo, a 3.200 m'."""
-    parti = []
+def descrivi(a, route=None):
+    """Frase semplice, senza Claude. Con la rotta (3.6, DL) viene prima la rotta:
+    'un volo Ryanair da Brindisi a Bergamo, un Boeing 737 a 3.200 metri'; senza:
+    'un Boeing 737 Ryanair a 3.200 metri'."""
+    da, a_ = route or a.get("route") or (None, None)
     comp = compagnia(a.get("flight"))
     tp = tipo(a.get("type"))
+    alt = f"a {a['alt_m']:,} metri".replace(",", ".") if a.get("alt_m") else ""
+    if da and a_:
+        chi = ("un volo" + (f" {comp}" if comp and not comp.startswith(("l'", "un ")) else "")
+               + (f" del{comp}" if comp and comp.startswith("l'") else ""))
+        resto = " ".join(x for x in (tp, alt) if x)
+        return f"{chi} da {da} a {a_}" + (f", {resto}" if resto else "")
+    parti = []
     if comp and tp:
         if comp.startswith("l'"):
             parti.append(f"{tp} del{comp}")            # "dell'Aeronautica Militare"
@@ -158,9 +201,6 @@ def descrivi(a, route=(None, None)):
         parti.append(tp)
     else:
         parti.append("un aereo")
-    da, a_ = route
-    if da and a_:
-        parti.append(f"da {da} a {a_}")
-    if a.get("alt_m"):
-        parti.append(f"a {a['alt_m']:,} metri".replace(",", "."))
+    if alt:
+        parti.append(alt)
     return " ".join(parti)

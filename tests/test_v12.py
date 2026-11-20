@@ -54,7 +54,7 @@ def test_ground_transponders_are_ignored(make_app, cube, monkeypatch):
               {"hex": "440735", "flight": "EZY1", "reg": None, "type": "A319", "alt_m": 10676, "kmh": 800,
                "lat": 44.50, "lon": 11.35, "km": 1.5}]
     monkeypatch.setattr(aerei, "vicini", lambda lat, lon, r: [dict(p) for p in planes])
-    monkeypatch.setattr(aerei, "rotta", lambda *a: (None, None))
+    monkeypatch.setattr(aerei, "rotta", lambda *a, **k: (None, None))
     app = make_app(dict(DAY, host=cube.host))
     app._planes({})
     assert [p["hex"] for p in app.planes] == ["440735"]

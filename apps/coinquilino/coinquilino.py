@@ -62,7 +62,7 @@ import meteo
 
 CHARACTERS = {"bandit": bandit, "alessio": alessio}
 
-VERSION = "3.5.2"
+VERSION = "3.6.0"
 
 FONT_URL = ("https://raw.githubusercontent.com/google/fonts/main/ofl/silkscreen/"
             "Silkscreen-Regular.ttf")
@@ -70,6 +70,7 @@ UA = f"coinquilino-smalltv/{VERSION} (Home Assistant AppDaemon)"
 MAX_PAGE = 2_000_000          # byte massimi letti da una pagina o da un feed
 API_URL = "https://api.anthropic.com/v1/messages"
 WIKI_SUMMARY = "https://it.wikipedia.org/api/rest_v1/page/summary/"   # 3.1 (CT): foto delle curiosita'
+WIKI_API = "https://it.wikipedia.org/w/api.php"                          # 3.6 (DG): ricerca se la voce manca
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 RAINY = {"rainy", "pouring", "lightning-rainy", "snowy-rainy", "hail"}
@@ -117,9 +118,10 @@ PERSONA_ALESSIO = (
 OUTPUT_RULE = (
     " Rispondi solo in italiano. Scrivi il testo finale una sola volta, dentro i tag "
     "<frase> e </frase>, senza nient'altro prima o dopo: niente commenti, niente "
-    "correzioni, niente note. Niente formule fisse in chiusura: l'affetto dillo solo ogni "
-    "tanto e ogni volta con parole diverse, e non ripetere esclamazioni o versi delle frasi "
-    "precedenti.")
+    "correzioni, niente note. Chiudi con il fatto stesso; l'affetto, quando c'e', ogni volta "
+    "con parole nuove, e con esclamazioni e versi diversi da quelli delle frasi precedenti.")
+# 3.6 (DH): in positivo. "Niente formule" faceva scrivere a Claude "no, evito la formula"
+# dentro la frase, che poi si scartava come ripensamento.
 
 # I fatti arrivano dentro <dati>: notizie, messaggi, nomi e voli vengono da fuori e non
 # devono poter cambiare chi e' il personaggio o cosa fa.
@@ -171,8 +173,10 @@ FALLBACK = {
 }
 
 KIND_HINT = {
-    "arrive": "Saluta chi è appena tornato a casa, in breve; se c'è una cosa utile da sapere "
-              "appena entrati (è passato qualcuno, sta per piovere, fa più freddo), dilla.",
+    # 3.6 (DI): solo le novita' vere; senza novita', solo il saluto
+    "arrive": "Saluta in breve chi è appena tornato a casa. Se nei dati c'è una novità utile "
+              "appena entrati (è suonato il citofono, sta per piovere, domani cambia il tempo), "
+              "aggiungila; se non c'è, basta un saluto caldo e corto.",
     "leave": "Commenta che questa persona è appena uscita di casa.",
     "claude_high": "Il consumo dell'abbonamento Claude di {owner} è alto: sei in riserva.",
     "claude_reset": "Il consumo di Claude si è azzerato: pieno fatto.",
@@ -1479,8 +1483,8 @@ class Coinquilino(hass.Hass):
         return float(lat), float(lon)
 
     def _planes(self, kwargs):
-        if "aerei" not in self.sources or self._is_night():
-            return
+        if "aerei" not in self.sources or self._is_night() or self._bloccato("aerei"):
+            return                                    # 3.6 (DM): bloccati, niente radar ne' diario
         lat, lon = self._coords()
         try:
             lst = aerei.vicini(lat, lon, self.plane_radius)
@@ -1507,7 +1511,11 @@ class Coinquilino(hass.Hass):
         if self.planes_day != today:
             self.planes_day, self.planes_seen = today, set()
         self.planes_seen |= {a["hex"] for a in lst if a.get("hex")}
+        # 3.6 (DL): la rotta del piu' vicino e di quello sopra casa (in cache per 6 ore)
         near = [a for a in lst if a["km"] <= self.overhead_km and (a["alt_m"] or 0) < 12500]
+        for a in {id(x): x for x in (lst[:1] + near[:1])}.values():
+            a["route"] = aerei.rotta(a["flight"], a["lat"], a["lon"],
+                                     log=lambda m: self._L("INFO", "free", "timer", "plane.route", m))
         if not near:
             return
         a = near[0]
@@ -1520,7 +1528,7 @@ class Coinquilino(hass.Hass):
             return
         self.plane_told.add(a["hex"])
         self.last_plane_told = time.time()
-        desc = aerei.descrivi(a, aerei.rotta(a["flight"], a["lat"], a["lon"]))
+        desc = aerei.descrivi(a)
         self.add_fact("plane", text=self.T(random.choice(PLANE_LINES)).format(desc=desc), key=a["hex"])
         self.remember(f"è passato sopra casa {desc}")
 
@@ -2523,8 +2531,10 @@ class Coinquilino(hass.Hass):
             ieri = (date.today() - timedelta(days=1)).isoformat()
             d = (self.mem.get("giorni") or {}).get(ieri, {}).get("diario")
             if d:
+                # 3.6 (DN): quello di ieri una volta sola, e solo la mattina
+                fine = datetime.combine(date.today(), datetime.min.time()).replace(hour=13).timestamp()
                 v["voci"].append({"tipo": "testo", "testo": f"Dal mio diario di ieri: {d}",
-                                  "t": time.time() - 3600, "viste": 0})
+                                  "t": time.time() - 3600, "viste": 0, "max_viste": 1, "scade": fine})
             self.mem["vetrina"] = v
         return v
 
@@ -2553,6 +2563,8 @@ class Coinquilino(hass.Hass):
         now = time.time()
         # 2.2.3 (CL): le frasi di Claude valgono qualche ora (poi i dati sono vecchi)
         v["voci"] = [x for x in v["voci"] if not x.get("scade") or now < x["scade"]]
+        # 3.6 (DN): certe voci (il diario) si rimostrano poche volte
+        v["voci"] = [x for x in v["voci"] if not x.get("max_viste") or x["viste"] < x["max_viste"]]
         # a cubo vuoto si gira anche sulle cose viste da poco (almeno 6 minuti fa): meglio una
         # cosa gia' vista che la faccia sola (11/11, 11:26)
         wait = 6 if self.msg is None and self.photo is None else 20
@@ -2590,8 +2602,14 @@ class Coinquilino(hass.Hass):
             self.mem["detto"]["conteggi"] = c
         return int(c.get(kind, 0))
 
+    def _bloccato(self, tema):
+        """3.6 (DM): la famiglia ha chiesto di non parlarne piu' (vale ovunque, non solo nelle
+        curiosita')."""
+        return tema in (getattr(getattr(self, "carattere", None), "bloccati", None) or [])
+
     def _plane_ok(self):
-        return time.time() - self.last_plane_talk >= self.plane_topic
+        return (not self._bloccato("aerei")
+                and time.time() - self.last_plane_talk >= self.plane_topic)
 
     @staticmethod
     def _about_planes(text):
@@ -3396,7 +3414,8 @@ class Coinquilino(hass.Hass):
                 self.mem["giorni"].setdefault(today, {"eventi": []})["diario"] = text
                 v = self._vetrina()                 # CE: in vetrina il diario di oggi, non quello di ieri
                 v["voci"] = [x for x in v["voci"] if not str(x.get("testo", "")).startswith("Dal mio diario")]
-                self._vetrina_add({"tipo": "testo", "testo": f"Dal mio diario di oggi: {text}"})
+                self._vetrina_add({"tipo": "testo", "testo": f"Dal mio diario di oggi: {text}",
+                                   "max_viste": 1})          # 3.6 (DN): una volta per sera
                 self._mem_save()
             elif fact["kind"] == "news":
                 self.remember(f"ho raccontato la notizia: {fact.get('title', '')[:90]}")
@@ -3673,7 +3692,8 @@ class Coinquilino(hass.Hass):
                     text = self._ask_claude(fact)
                     if text:
                         return text, "paid"
-                    self._why_not = "risposta di Claude scartata"
+                    # 3.6 (DJ): non coprire il motivo vero (SALTA, numeri inventati, ...)
+                    self._why_not = self._why_not or "risposta di Claude scartata"
                 except Budget as b:
                     self._why_not = f"tetto {b} raggiunto"
                 except Exception as e:
@@ -4009,8 +4029,9 @@ class Coinquilino(hass.Hass):
             topic, tema = self._argomento()
             task.append(self.T(ARGOMENTO_HINT[topic]).replace("{tema}", tema or ""))
         if kind == "arrive":
-            task.append("Usa solo i fatti scritti nei dati: non inventare pacchi, corrieri, visite, "
-                        "temperature o piogge che non ci sono.")
+            task.append("Racconta solo cose successe davvero e scritte nei dati (pacchi, visite, "
+                        "piogge e temperature comprese); quello che non è successo non si nomina. "
+                        "Le temperature confrontale solo con ieri o con domani, mai con poche ore fa.")
         data += self._context(full=full, topic=topic)
         if kind == "diario":
             ev = self.mem["giorni"].get(date.today().isoformat(), {}).get("eventi", [])
@@ -4045,7 +4066,7 @@ class Coinquilino(hass.Hass):
             self._argomento_fatto(topic, tema)
             if topic == "curiosita":
                 voce = re.findall(r"<foto>(.*?)</foto>", self._last_raw + "</foto>", re.S)
-                self._director_card = self._wiki_foto(clean(voce[-1])) if voce else None
+                self._director_card = self._wiki_foto(clean(voce[-1]), text) if voce else None
         if text and kind == "regista":
             self._news_picked(self._last_raw)
         if text and kind == "regista" and mood in MOODS and mood != "sleep":
@@ -4113,27 +4134,57 @@ class Coinquilino(hass.Hass):
         dati = set(re.findall(r"\d+", " ".join(str(x) for x in fonti)))
         return any(n not in dati for n in nums)
 
-    def _wiki_foto(self, voce):
-        """CT: la foto della voce di Wikipedia della curiosita' -> lavagnetta, o None."""
+    def _wiki_foto(self, voce, frase=""):
+        """CT: la foto della voce di Wikipedia della curiosita' -> lavagnetta, o None.
+        3.6 (DG): se la voce non c'e', e' una disambigua o non ha foto, si cerca: fra i primi
+        risultati con una foto vince quello col titolo piu' vicino alla frase."""
         if not voce or not self.cards_on or not hasattr(self.char, "render_card"):
             return None
+        ua = {"User-Agent": "smalltv-coinquilino"}
         try:
+            src, why = None, ""
             r = requests.get(WIKI_SUMMARY + requests.utils.quote(voce.replace(" ", "_")),
-                             headers={"User-Agent": "smalltv-coinquilino"}, timeout=10)
+                             headers=ua, timeout=10)
             if r.status_code != 200:
-                self.log(f"foto della curiosità: voce «{voce}» non trovata ({r.status_code})")
-                return None
-            src = ((r.json().get("thumbnail") or {}).get("source")
-                   or (r.json().get("originalimage") or {}).get("source"))
+                why = f"non trovata ({r.status_code})"
+            elif r.json().get("type") == "disambiguation":
+                why = "è una disambigua"
+            else:
+                src = ((r.json().get("thumbnail") or {}).get("source")
+                       or (r.json().get("originalimage") or {}).get("source"))
+                why = "" if src else "senza foto"
             if not src:
-                self.log(f"foto della curiosità: la voce «{voce}» non ha foto")
+                src, titolo = self._wiki_cerca(voce, frase, ua)
+                self.log(f"foto della curiosità: voce «{voce}» {why}"
+                         + (f", uso «{titolo}»" if src else ", niente trovato con la ricerca"))
+            if not src:
                 return None
-            img = requests.get(src, headers={"User-Agent": "smalltv-coinquilino"}, timeout=15)
+            img = requests.get(src, headers=ua, timeout=15)
             img.raise_for_status()
             return foto.quadro(Image.open(io.BytesIO(img.content)), grafici.CARD_W, grafici.CARD_H)
         except Exception as e:
             self.log(f"foto della curiosità non disponibile ({voce}): {e}", level="WARNING")
             return None
+
+    @staticmethod
+    def _wiki_cerca(voce, frase, ua):
+        """(url della foto, titolo) dal primo risultato utile della ricerca, o (None, None)."""
+        r = requests.get(WIKI_API, headers=ua, timeout=10, params={
+            "action": "query", "generator": "search", "gsrsearch": voce, "gsrlimit": 8,
+            "prop": "pageimages|pageprops", "piprop": "thumbnail", "pithumbsize": 480,
+            "ppprop": "disambiguation", "format": "json", "formatversion": 2})
+        r.raise_for_status()
+        pagine = [p for p in ((r.json().get("query") or {}).get("pages") or [])
+                  if "disambiguation" not in (p.get("pageprops") or {}) and p.get("thumbnail")]
+        parole = {w for w in re.findall(r"\w{4,}", f"{voce} {frase}".lower())}
+
+        def vicino(p):
+            titolo = set(re.findall(r"\w{4,}", p["title"].lower()))
+            return (-len(titolo & parole), p.get("index", 99))
+        if not pagine:
+            return None, None
+        p = min(pagine, key=vicino)
+        return p["thumbnail"]["source"], p["title"]
 
     def _ask_drawing(self):
         """Disegno di Claude a forme (3.1.1, CM) -> (titolo, immagine) oppure (None, None)."""
@@ -4387,6 +4438,8 @@ class Coinquilino(hass.Hass):
                 "trovi nei dati), niente ripetizioni delle idee già proposte né cose simili a quelle "
                 "bocciate." + (f" Non proporre niente su: {', '.join(self.ideas_avoid)} "
                                f"({self.owner} ci pensa da sé)." if self.ideas_avoid else "")
+                + (f" Non proporre niente su: {', '.join(self.carattere.bloccati)} (la famiglia ha "
+                   "chiesto di non parlarne)." if self.carattere.bloccati else "")
                 + " Niente controlli sulle persone (orari di rientro, chi esce con chi): ognuno "
                 "decide per sé.",
                 "Scrivi semplice e naturale: niente formule affettuose in chiusura, niente versi o "
@@ -4867,6 +4920,9 @@ class Coinquilino(hass.Hass):
             if card:
                 img = self.char.render_card(card[0], mood, sky, weather, page, frame, talking,
                                             more, seed=7, font_path=self.font_path, festa=festa)
+            elif page and hasattr(self.char, "render_base"):
+                img = self.char.bubble(self._base(key, frame, mood, sky, weather, talking, festa,
+                                                  plane, extra), page, self.font_path, more)
             else:
                 img = self.char.render(mood, sky, weather, page, frame, talking, more, seed=7,
                                        font_path=self.font_path, festa=festa, plane=plane, **extra)
@@ -4875,6 +4931,20 @@ class Coinquilino(hass.Hass):
                 img = prev                       # uguale al precedente: una copia sola in memoria
             cache[frame] = img
         return img
+
+    def _base(self, key, frame, mood, sky, weather, talking, festa, plane, extra):
+        """3.6 (DK): la cameretta senza fumetto, tenuta da parte finche' non cambia la scena: le
+        pagine di una frase lunga cambiano ogni pochi secondi e svuotavano la cache dei
+        fotogrammi, cosi' la stanza (piu' di due terzi del lavoro) si ridisegnava sempre."""
+        bkey = key[:5] + key[6:7] + key[8:]         # tutto tranne la pagina e "more"
+        if getattr(self, "_bases", (None,))[0] != bkey:
+            self._bases = (bkey, {})
+        cache = self._bases[1]
+        if frame not in cache:
+            cache[frame] = self.char.render_base(mood, sky, weather, True, frame, talking, seed=7,
+                                                 font_path=self.font_path, festa=festa,
+                                                 plane=plane, **extra)
+        return cache[frame]
 
     def _tick(self, kwargs):
         if time.time() < self.next_at or not self.draw_lock.acquire(blocking=False):

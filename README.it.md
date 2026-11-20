@@ -67,8 +67,10 @@ pixel art.
 - **Agenda** — le voci con l'ora e gli appuntamenti vicini li dice sul cubo e li manda sul telefono,
   con date "umane" (*"domani alle 18"*, *"sabato"*); *"ricordami di … alle 18"* in chat finisce nella
   tua lista, *"fatto …"* la spunta.
-- **Aerei sopra casa** (ADS-B pubblico, senza chiave) — compagnia, modello, quota e rotta
-  dell'aereo che passa sopra casa, alla finestra e su un radar.
+- **Aerei sopra casa** (ADS-B pubblico, senza chiave) — da dove viene e dove va l'aereo che passa
+  sopra casa (*"un volo Aegean da Atene a Roma"*), poi modello e quota; alla finestra e su un radar.
+  La rotta si dice solo se l'aereo sta più o meno sulla strada fra le due città (un numero di volo
+  riusato può portarsi dietro una rotta vecchia).
 - **Notizie** da qualunque feed RSS, nazionali e locali, con le categorie da saltare; le notizie
   tristi non le annuncia mai.
 - **Le foto di famiglia** mandate al bot di Telegram: subito sul cubo, poi a giro qualche volta al
@@ -88,7 +90,9 @@ pixel art.
   tempo.
 - **La memoria** — i fatti del giorno, il diario della sera e una memoria lunga riscritta ogni notte
   con quello che vale per settimane (gusti, progetti, cose in sospeso — non chi entra ed esce). In
-  chat: *"ricordati che…"*, *"dimentica…"*, *"non parlare più di aerei"*.
+  chat: *"ricordati che…"*, *"dimentica…"*, *"non parlare più di aerei"*
+  (dalla 3.6 vale ovunque: niente avvisi, radar, conti nel diario o idee sugli aerei; se ne chiedi
+  tu, risponde; *"ora puoi parlare di aerei"* lo toglie).
 - **Un carattere che cambia** — tratti e interessi si spostano un po' ogni settimana con i tuoi
   👍/👎; impara qualche curiosità alla settimana; al massimo una volta al giorno scrive lui per primo,
   con un'idea o una domanda preparata di notte, e la domenica il riassunto della settimana.
@@ -254,6 +258,7 @@ notifica sul telefono (Telegram o `notify`), che CarPlay legge ad alta voce. Con
 | Anthropic (API Claude) | la descrizione che hai scritto (`about_owner`, `family`), nomi e soprannomi di chi abita in casa e chi c'è, titoli recenti, meteo, l'aereo più vicino, gli eventi del giorno, le voci da fare e gli appuntamenti di oggi (con `reminders_todo` / `calendars`), quello che Home Assistant ha mandato con `coinquilino_say`, i messaggi della chat, i suoi ricordi lunghi e il carattere; quando risponde in chat anche le luci accese, i sensori di temperatura e lo stato delle entità in `control` | solo con la chiave; solo se qualcuno in `presence` è in casa e sveglio — tranne la chat, a cui risponde sempre |
 | Open-Meteo | le coordinate di casa (da `zone.home`) | ogni 15 minuti |
 | adsb.lol / adsb.fi | le coordinate di casa e un raggio | ogni minuto, di giorno |
+| adsbdb | il numero di volo dell'aereo più vicino | una volta per volo ogni 6 ore |
 | i tuoi feed RSS | una normale richiesta del feed | ogni ora |
 | il tuo telefono (`notify`) | promemoria, azioni fatte, avvisi | solo se imposti `notify` |
 | Telegram (tramite il bot Telegram di Home Assistant) | risposte ai tuoi messaggi, promemoria, azioni fatte, avvisi, idee e riassunto della settimana | solo se imposti `telegram_chats` |
@@ -339,7 +344,7 @@ resta ben sotto il dollaro al mese; il conto lo tiene l'app (`sensor.*_costo_api
 
 - Firmware [glimmer](https://github.com/Avinava/glimmer) (MIT) e i suoi autori
 - Meteo: [Open-Meteo](https://open-meteo.com) (CC BY 4.0)
-- Aerei: [adsb.lol](https://adsb.lol) (ODbL) e [adsb.fi](https://adsb.fi)
+- Aerei: [adsb.lol](https://adsb.lol) (ODbL) e [adsb.fi](https://adsb.fi); rotte: [adsbdb](https://www.adsbdb.com)
 - Font: Fredoka e Silkscreen da Google Fonts, inclusi in `apps/coinquilino/fonts/` (SIL Open Font License, testi accanto)
 - Frasi del personaggio: [Claude](https://www.anthropic.com/claude) (API Anthropic)
 

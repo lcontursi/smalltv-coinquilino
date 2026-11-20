@@ -824,6 +824,24 @@ AGE = 10         # anni di Alessio: lo aggiorna l'app (sotto i 4 anni dorme col 
 
 def render(mood="happy", sky="day", weather=None, text="", frame=0, talking=False,
            more=False, seed=7, font_path="Fredoka.ttf", festa=None, plane=None, scene=None):
+    """La cameretta con il fumetto. 3.6 (DK): e' render_base + bubble, cosi' chi disegna puo'
+    tenere da parte la stanza (che non dipende dal testo, solo dal fatto che ce n'e' uno) e
+    ridisegnare solo il fumetto quando la frase scorre."""
+    bg = render_base(mood, sky, weather, bool(text), frame, talking, seed, font_path, festa,
+                     plane, scene)
+    _bubble(bg, text, font_path, more)
+    return bg
+
+
+def bubble(img, text, font_path="Fredoka.ttf", more=False):
+    """Il fumetto su una copia del fotogramma di render_base."""
+    img = img.copy()
+    _bubble(img, text, font_path, more)
+    return img
+
+
+def render_base(mood="happy", sky="day", weather=None, text=False, frame=0, talking=False,
+                seed=7, font_path="Fredoka.ttf", festa=None, plane=None, scene=None):
     """festa: halloween | natale | capodanno | compleanno | pasqua | patrono | None
        plane: True quando un aereo passa sopra casa (lo si vede alla finestra).
        scene: (2.0) la scena del giorno, {stagione, oggetto, giorno, settimana}; weather puo'
@@ -857,7 +875,6 @@ def render(mood="happy", sky="day", weather=None, text="", frame=0, talking=Fals
     bg.paste(ch, (0, 0), ch)
     if mood == "sleep":
         _zzz(bg, frame)
-    _bubble(bg, text, font_path, more)
     return bg
 
 

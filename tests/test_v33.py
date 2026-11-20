@@ -15,6 +15,8 @@ def contatore(monkeypatch, quadri=10):
         return Image.new("RGB", (240, 200), (frame // quadri, len(mood), 0))
 
     monkeypatch.setattr(alessio, "render", render)
+    monkeypatch.setattr(alessio, "render_base", render)          # 3.6 (DK): con la frase
+    monkeypatch.setattr(alessio, "bubble", lambda img, *a, **k: img.copy())
     return calls
 
 

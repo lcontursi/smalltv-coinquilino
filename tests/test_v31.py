@@ -81,7 +81,7 @@ def test_skip_and_invented_numbers(make_app, cube, monkeypatch):
     assert app._argomenti_oggi()["notizia"] == 1                  # il turno conta comunque
     fake.answer = "<frase>Ciao Mario, fuori ci sono 12 gradi e c'è un pacco.</frase>"
     assert app._ask_claude({"kind": "arrive", "name": "Mario", "key": "person.mario"}) is None
-    assert "non inventare pacchi" in fake.calls[-1]["json"]["messages"][0]["content"]
+    assert "quello che non è successo non si nomina" in fake.calls[-1]["json"]["messages"][0]["content"]
 
 
 def test_sentence_filters(make_app, cube, monkeypatch):
